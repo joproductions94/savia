@@ -1,0 +1,800 @@
+<title>Savia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: un teléfono interactivo a la izquierda, una guía corta a la derecha; en móvil la app ocupa el ancho y la guía va debajo. */
+:root {
+  --bg: #E9EEE8;
+  --surface: #F7F9F5;
+  --card: #FFFFFF;
+  --ink: #17201A;
+  --muted: #5B685F;
+  --line: #D9E0D7;
+  --accent: #2E6A44;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DCEADF;
+  --jo: #A86A12;
+  --jo-soft: #F5E6CC;
+  --sam: #7A4A8C;
+  --sam-soft: #EDE1F2;
+  --ok: #2B7A4B;
+  --no: #B0443A;
+  --no-soft: #F6DEDA;
+  --shadow: 0 1px 2px rgba(23,32,26,.06), 0 8px 24px rgba(23,32,26,.08);
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --f-body: "Figtree", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D120F; --surface: #121915; --card: #19221C; --ink: #E6EDE7; --muted: #98A69C; --line: #28332C;
+    --accent: #72C08D; --accent-ink: #0D1F14; --accent-soft: #1D3325; --jo: #E3A852; --jo-soft: #3A2C16;
+    --sam: #C69CD8; --sam-soft: #33253B; --ok: #73CC93; --no: #EC8277; --no-soft: #3D211E;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D120F; --surface: #121915; --card: #19221C; --ink: #E6EDE7; --muted: #98A69C; --line: #28332C;
+  --accent: #72C08D; --accent-ink: #0D1F14; --accent-soft: #1D3325; --jo: #E3A852; --jo-soft: #3A2C16;
+  --sam: #C69CD8; --sam-soft: #33253B; --ok: #73CC93; --no: #EC8277; --no-soft: #3D211E;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stage { display: flex; gap: 40px; justify-content: center; align-items: flex-start; flex-wrap: wrap; max-width: 1040px; margin: 0 auto; }
+
+/* ---------- device ---------- */
+.device {
+  width: 400px; max-width: 100%; height: min(840px, calc(100vh - 48px)); min-height: 620px;
+  border-radius: 34px; background: var(--surface); box-shadow: var(--shadow), 0 0 0 8px var(--card), 0 0 0 9px var(--line);
+  position: relative; overflow: hidden; display: flex; flex-direction: column;
+}
+.top { padding: 18px 18px 10px; display: flex; align-items: center; gap: 10px; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: -.02em; display: flex; align-items: center; gap: 7px; }
+.brand svg { color: var(--accent); }
+.spacer { flex: 1; }
+.persona {
+  border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 10px 4px 4px;
+  display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
+}
+.av { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+.av.jo { background: var(--jo-soft); color: var(--jo); }
+.av.sam { background: var(--sam-soft); color: var(--sam); }
+.av.both { background: linear-gradient(135deg, var(--jo-soft) 50%, var(--sam-soft) 50%); color: var(--ink); font-size: 10px; }
+.persona small { color: var(--muted); font-weight: 500; }
+.bell { position: relative; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); display: grid; place-items: center; }
+.bell .dot { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--no); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; padding: 0 4px; }
+
+main { flex: 1; overflow-y: auto; padding: 4px 18px 96px; scroll-behavior: smooth; }
+.view[hidden] { display: none; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: 28px; line-height: 1.1; letter-spacing: -.02em; margin: 2px 0 16px; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 18px; letter-spacing: -.01em; margin: 22px 0 10px; display: flex; align-items: baseline; gap: 8px; }
+h2 .count { font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-weight: 500; }
+.mono { font-family: var(--f-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+
+/* rows */
+.list { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px 10px 8px; min-height: 52px; }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .t span { font-size: 12.5px; color: var(--muted); }
+.row.done .t b { text-decoration: line-through; color: var(--muted); }
+.grip { width: 26px; height: 34px; border: 0; background: none; color: var(--muted); display: grid; place-items: center; touch-action: none; cursor: grab; border-radius: 8px; flex: none; }
+.grip:active { cursor: grabbing; }
+.check { width: 24px; height: 24px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--surface); display: grid; place-items: center; flex: none; padding: 0; }
+.check.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.kind { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); flex: none; }
+.kind.task { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+.more { border: 0; background: none; color: var(--muted); width: 30px; height: 30px; border-radius: 8px; flex: none; }
+
+/* week */
+.day { border-radius: 16px; padding: 8px; margin: 0 -8px 6px; transition: background .15s; }
+.day.over { background: var(--accent-soft); outline: 2px dashed var(--accent); outline-offset: -2px; }
+.dayhead { display: flex; align-items: baseline; gap: 8px; padding: 4px 4px 8px; }
+.dayhead b { font-family: var(--f-display); font-size: 17px; }
+.dayhead .today { font-size: 11px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 2px 6px; }
+.empty-day { border: 1.5px dashed var(--line); border-radius: 14px; padding: 12px; text-align: center; font-size: 13px; color: var(--muted); }
+.ghost { position: fixed; z-index: 50; pointer-events: none; width: 300px; transform: rotate(-2deg); box-shadow: var(--shadow); opacity: .95; }
+
+/* balance */
+.balance { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: var(--line); margin: 10px 0 8px; }
+.balance i { display: block; height: 100%; transition: width .4s; }
+.legend { display: flex; justify-content: space-between; font-size: 13px; }
+
+/* dinner */
+.plate { width: 112px; height: 112px; border-radius: 50%; flex: none; position: relative; box-shadow: inset 0 0 0 6px var(--card), 0 0 0 1px var(--line); }
+.plate::after { content: ""; position: absolute; inset: 30px; border-radius: 50%; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
+.dish { display: flex; gap: 14px; align-items: center; }
+.dish h3 { font-family: var(--f-display); font-size: 21px; line-height: 1.15; margin: 4px 0 6px; letter-spacing: -.01em; text-wrap: balance; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; border-radius: 999px; padding: 4px 10px; border: 1px solid var(--line); background: var(--surface); white-space: nowrap; }
+.chip.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.chip.warn { color: var(--no); border-color: color-mix(in srgb, var(--no) 35%, transparent); }
+button.chip { cursor: pointer; }
+button.chip.sel { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+.portion { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.portion:first-child { border-top: 0; }
+.portion .t { min-width: 0; }
+.portion .t b { display: block; font-weight: 600; }
+.portion .t span { font-size: 12.5px; color: var(--muted); }
+.meter { height: 6px; border-radius: 3px; background: var(--line); margin-top: 6px; position: relative; overflow: visible; }
+.meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--sam); }
+.meter .cap { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); opacity: .5; }
+
+.votes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.vote { border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: flex; gap: 8px; align-items: center; background: var(--card); }
+.vote .t { min-width: 0; font-size: 13px; }
+.vote .t b { display: block; font-size: 14px; }
+.vote.yes { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 9%, var(--card)); }
+.vote.no { border-color: var(--no); background: var(--no-soft); }
+.state-yes { color: var(--ok); font-weight: 600; }
+.state-no { color: var(--no); font-weight: 600; }
+
+.actions { display: flex; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 14px; padding: 12px 14px; font-weight: 600; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.ghosty { background: transparent; }
+.btn.small { padding: 8px 12px; min-height: 38px; flex: none; font-size: 13.5px; border-radius: 12px; }
+.linkbtn { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 6px 0; }
+
+.reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.banner { border-radius: 16px; padding: 14px; background: var(--accent-soft); color: var(--ink); display: flex; gap: 10px; align-items: flex-start; }
+.banner svg { color: var(--accent); flex: none; margin-top: 2px; }
+.alt { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.alt:first-child { border-top: 0; }
+.mini-plate { width: 40px; height: 40px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 3px var(--card), 0 0 0 1px var(--line); }
+.alt .t { flex: 1; min-width: 0; }
+.alt .t b { display: block; font-weight: 600; font-size: 14px; }
+.alt .t span { font-size: 12.5px; color: var(--muted); }
+.bar { height: 5px; background: var(--line); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+
+/* shopping */
+.addbar { display: flex; gap: 8px; margin-bottom: 4px; }
+.addbar input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 12px 14px; font: inherit; color: var(--ink); }
+.aisle { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin: 14px 2px 6px; }
+.tag { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 6px; margin-left: 4px; white-space: nowrap; }
+details.pantry summary { cursor: pointer; font-weight: 600; padding: 12px 0; list-style: none; display: flex; justify-content: space-between; }
+details.pantry summary::-webkit-details-marker { display: none; }
+.pantry-chips { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 8px; }
+
+/* tabbar */
+.tabbar { position: absolute; left: 10px; right: 10px; bottom: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 22px; display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px; box-shadow: var(--shadow); z-index: 5; }
+.tab { border: 0; background: none; border-radius: 16px; padding: 7px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.tab[aria-selected="true"] { color: var(--accent); background: var(--accent-soft); }
+.fab { position: absolute; right: 18px; bottom: 92px; width: 56px; height: 56px; border-radius: 18px; border: 0; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; box-shadow: var(--shadow); z-index: 6; }
+
+/* sheet */
+.scrim { position: absolute; inset: 0; background: rgba(10,16,12,.38); z-index: 20; opacity: 0; transition: opacity .2s; }
+.scrim.show { opacity: 1; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 86%; overflow-y: auto; background: var(--surface); border-radius: 26px 26px 0 0; padding: 10px 18px 24px; z-index: 21; transform: translateY(100%); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+.sheet.show { transform: none; }
+.sheet .handle { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+.sheet h3 { font-family: var(--f-display); font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; text-wrap: balance; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.field > label, .field > .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.field input[type=text], .field input[type=time] { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 11px 12px; font: inherit; color: var(--ink); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); margin-top: 14px; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
+.steps { padding-left: 20px; margin: 6px 0 0; }
+.steps li { margin-bottom: 8px; }
+.ing { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.ing:first-child { border-top: 0; }
+.note { padding: 12px 14px; border-radius: 14px; background: var(--sam-soft); font-size: 14px; margin-top: 12px; }
+.note b { color: var(--sam); }
+.notif { display: flex; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.notif:first-child { border-top: 0; }
+
+.toast { position: absolute; left: 50%; bottom: 92px; transform: translate(-50%, 20px); background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 12px; font-size: 13.5px; font-weight: 500; z-index: 30; opacity: 0; pointer-events: none; transition: all .25s; width: max-content; max-width: calc(100% - 36px); text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* guide */
+.guide { flex: 1 1 320px; max-width: 460px; min-width: 0; padding-top: 12px; }
+.guide .eyebrow { color: var(--accent); }
+.guide h2 { font-size: 30px; margin: 6px 0 10px; line-height: 1.1; display: block; }
+.guide p { margin: 0 0 14px; max-width: 62ch; }
+.try { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; padding: 0; list-style: none; }
+.try li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.try li span:first-child { width: 28px; height: 28px; border-radius: 9px; background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; color: var(--accent); }
+.fine { font-size: 13px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  body { padding-block: 12px; }
+  .device { height: calc(100vh - 24px); min-height: 560px; border-radius: 26px; box-shadow: 0 0 0 1px var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+
+<div class="stage">
+  <div class="device" id="device">
+    <div class="top">
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21c0-6 0-9 0-12M12 12c-4 0-7-2.5-7-7 4 0 7 2.5 7 7Zm0 0c4 0 7-2.5 7-7-4 0-7 2.5-7 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Savia
+      </div>
+      <div class="spacer"></div>
+      <button class="persona" id="persona" aria-label="Cambiar de persona"></button>
+      <button class="bell" id="bell" aria-label="Avisos">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16Zm4 4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="dot" id="bellDot" hidden></span>
+      </button>
+    </div>
+
+    <main id="main">
+      <section class="view" id="v-hoy"></section>
+      <section class="view" id="v-semana" hidden></section>
+      <section class="view" id="v-cena" hidden></section>
+      <section class="view" id="v-compras" hidden></section>
+    </main>
+
+    <button class="fab" id="fab" aria-label="Nueva tarea o evento">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+
+    <nav class="tabbar" role="tablist">
+      <button class="tab" role="tab" data-tab="hoy" aria-selected="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Hoy</button>
+      <button class="tab" role="tab" data-tab="semana" aria-selected="false">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Semana</button>
+      <button class="tab" role="tab" data-tab="cena" aria-selected="false">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="13" r="6.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 4v5M3 9c0 1 .5 2 1.5 2M21 4c-1.5 1-2 3-2 5h2V4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Cena</button>
+      <button class="tab" role="tab" data-tab="compras" aria-selected="false">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h2l2 10h10l2-7H7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="19" r="1.4" fill="currentColor"/><circle cx="16.5" cy="19" r="1.4" fill="currentColor"/></svg>Compras</button>
+    </nav>
+
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></div>
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+
+  <aside class="guide">
+    <div class="eyebrow">Prototipo interactivo · datos de ejemplo</div>
+    <h2>Una casa, dos personas, una cena decidida</h2>
+    <p>Savia junta la agenda compartida, la cena de cada noche y la lista de la compra en un solo flujo. Lo que compras alimenta las propuestas de cena, y la cena que aprobáis los dos rellena la lista.</p>
+    <ul class="try">
+      <li><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span><span>En <b>Semana</b>, arrastra una tarea por el asa hasta otro día. Si es de la otra persona, le llega un aviso.</span></li>
+      <li><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Toca el selector de arriba para ver la app como <b>Sam</b> y revisar sus avisos.</span></li>
+      <li><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>En <b>Cena</b>, pulsa «Otra idea» y elige «Muy pesado»: la siguiente propuesta respeta la dieta de Sam.</span></li>
+      <li><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m5 12 4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Cuando los dos aprobáis, añade lo que falta a la compra con un toque.</span></li>
+      <li><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 5h2l2 10h10l2-7H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Marca algo como comprado: pasa a la despensa y las sugerencias de cena se recalculan.</span></li>
+    </ul>
+    <p class="fine">Jo y Sam son personas de ejemplo. Los precios son estimaciones en CHF. Nada de lo que hagas aquí se guarda.</p>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const people = {
+    jo:  { name: 'Jo',  diet: null },
+    sam: { name: 'Sam', diet: { label: 'Déficit suave', dinnerMax: 600 } }
+  };
+  let me = 'jo';
+  const other = () => (me === 'jo' ? 'sam' : 'jo');
+  const nameOf = w => (w === 'both' ? 'Los dos' : people[w].name);
+
+  const days = ['Lun 19', 'Mar 20', 'Mié 21', 'Jue 22', 'Vie 23', 'Sáb 24', 'Dom 25'];
+  const daysLong = ['lunes 19', 'martes 20', 'miércoles 21', 'jueves 22', 'viernes 23', 'sábado 24', 'domingo 25'];
+  const TODAY = 0;
+
+  let nextId = 100;
+  const items = [
+    { id: 1, title: 'Sacar el reciclaje', kind: 'task', day: 0, time: '19:00', who: 'jo', done: false },
+    { id: 2, title: 'Pagar el alquiler', kind: 'task', day: 0, time: null, who: 'sam', done: true },
+    { id: 3, title: 'Dentista', kind: 'event', day: 1, time: '17:30', who: 'sam', done: false },
+    { id: 4, title: 'Poner la lavadora', kind: 'task', day: 1, time: null, who: 'jo', done: false },
+    { id: 5, title: 'Compra grande de la semana', kind: 'task', day: 2, time: '18:30', who: 'both', done: false },
+    { id: 6, title: 'Cena con Marta y Leo', kind: 'event', day: 3, time: '20:00', who: 'both', done: false },
+    { id: 7, title: 'Aspirar el salón', kind: 'task', day: 4, time: null, who: 'sam', done: false },
+    { id: 8, title: 'Mercado y cocinar para la semana', kind: 'task', day: 5, time: '10:00', who: 'both', done: false },
+    { id: 9, title: 'Llamar a la abuela', kind: 'task', day: 6, time: '17:00', who: 'jo', done: false }
+  ];
+
+  const notes = {
+    jo: [
+      { text: 'Sam aprobó la cena de hoy: Salmón al horno. Falta tu voto.', when: 'hace 12 min' },
+      { text: 'Sam movió «Aspirar el salón» al viernes 23.', when: 'hace 1 h' }
+    ],
+    sam: []
+  };
+  const unread = { jo: 2, sam: 0 };
+
+  const AISLE = {
+    'Salmón': 'Pescadería', 'Pechuga de pollo': 'Carnicería', 'Boniato': 'Fruta y verdura', 'Brócoli': 'Fruta y verdura',
+    'Limón': 'Fruta y verdura', 'Espinacas': 'Fruta y verdura', 'Cebolla': 'Fruta y verdura', 'Calabacín': 'Fruta y verdura',
+    'Tomates': 'Fruta y verdura', 'Tomates cherry': 'Fruta y verdura', 'Rúcula': 'Fruta y verdura', 'Jengibre': 'Fruta y verdura',
+    'Leche': 'Lácteos y huevos', 'Yogur natural': 'Lácteos y huevos', 'Parmesano': 'Lácteos y huevos', 'Huevos': 'Lácteos y huevos',
+    'Pan': 'Panadería', 'Papel de cocina': 'Hogar', 'Edamame': 'Congelados',
+    'Leche de coco': 'Despensa', 'Garbanzos': 'Despensa', 'Arroz basmati': 'Despensa', 'Pasta integral': 'Despensa',
+    'Aceite de oliva': 'Despensa', 'Curry en polvo': 'Despensa', 'Salsa de soja': 'Despensa', 'Nueces': 'Despensa'
+  };
+  const PRICE = { 'Salmón': 9.8, 'Pechuga de pollo': 8.9, 'Leche de coco': 2.4, 'Calabacín': 1.9, 'Rúcula': 2.2, 'Tomates cherry': 3.5, 'Edamame': 3.2, 'Jengibre': 1.1, 'Espinacas': 2.95, 'Leche': 1.75, 'Pan': 3.2, 'Yogur natural': 2.1, 'Papel de cocina': 4.5 };
+  const AISLE_ORDER = ['Fruta y verdura', 'Panadería', 'Pescadería', 'Carnicería', 'Lácteos y huevos', 'Despensa', 'Congelados', 'Hogar', 'Otros'];
+
+  const pantry = new Set(['Boniato', 'Brócoli', 'Limón', 'Aceite de oliva', 'Garbanzos', 'Arroz basmati', 'Cebolla', 'Curry en polvo', 'Huevos', 'Tomates', 'Pasta integral', 'Parmesano', 'Nueces', 'Salsa de soja']);
+  let shop = [
+    { id: 1, name: 'Espinacas', done: false, from: null },
+    { id: 2, name: 'Leche', done: false, from: null },
+    { id: 3, name: 'Pan', done: false, from: null },
+    { id: 4, name: 'Yogur natural', done: false, from: null },
+    { id: 5, name: 'Papel de cocina', done: false, from: null }
+  ];
+
+  const recipes = [
+    { id: 'salmon', name: 'Salmón al horno con boniato y brócoli', time: 35, kcal: 690, light: { kcal: 520, note: 'Mitad de boniato y doble de brócoli' },
+      hues: ['#E58A5B', '#E9A94B', '#4F8F4E', '#E8D35A'],
+      ing: ['Salmón', 'Boniato', 'Brócoli', 'Limón', 'Aceite de oliva'],
+      steps: ['Precalienta el horno a 200 °C.', 'Corta el boniato en dados, alíñalo y hornéalo 15 min.', 'Añade el brócoli y el salmón con limón; 12 min más.', 'Sirve. La ración de Sam lleva la mitad de boniato.'] },
+    { id: 'curry', name: 'Curry de garbanzos y espinacas', time: 30, kcal: 640, light: { kcal: 450, note: 'Arroz de coliflor en lugar de basmati' },
+      hues: ['#D9A23A', '#3F7D3A', '#EFE6CF', '#C4673A'],
+      ing: ['Garbanzos', 'Espinacas', 'Leche de coco', 'Arroz basmati', 'Cebolla', 'Curry en polvo'],
+      steps: ['Sofríe la cebolla con el curry 5 min.', 'Añade garbanzos y leche de coco; 10 min a fuego suave.', 'Incorpora las espinacas al final.', 'Sirve con arroz (o coliflor para Sam).'] },
+    { id: 'tortilla', name: 'Tortilla de calabacín con ensalada de tomate', time: 20, kcal: 430, light: null,
+      hues: ['#F2C94C', '#6FA35A', '#D9473A', '#F5E7B5'],
+      ing: ['Huevos', 'Calabacín', 'Tomates', 'Cebolla', 'Aceite de oliva'],
+      steps: ['Pocha cebolla y calabacín en láminas 8 min.', 'Bate los huevos y cuaja la tortilla.', 'Ensalada de tomate con aceite y sal.'] },
+    { id: 'pasta', name: 'Pasta integral con pesto de rúcula', time: 25, kcal: 720, light: { kcal: 560, note: '75 g de pasta y más tomate cherry' },
+      hues: ['#C79A5B', '#4E8B3A', '#E04A3A', '#EDE2C4'],
+      ing: ['Pasta integral', 'Rúcula', 'Parmesano', 'Tomates cherry', 'Nueces'],
+      steps: ['Cuece la pasta.', 'Tritura rúcula, nueces, parmesano y aceite.', 'Mezcla con la pasta y los cherry partidos.'] },
+    { id: 'bowl', name: 'Bowl de pollo teriyaki con edamame', time: 30, kcal: 610, light: { kcal: 540, note: 'Salsa aparte y media ración de arroz' },
+      hues: ['#B5652F', '#7FB04F', '#F3EBD6', '#3A2A20'],
+      ing: ['Pechuga de pollo', 'Edamame', 'Arroz basmati', 'Salsa de soja', 'Jengibre'],
+      steps: ['Cuece el arroz.', 'Dora el pollo en tiras y glasea con soja y jengibre.', 'Monta el bowl con edamame.'] }
+  ];
+  const R = id => recipes.find(r => r.id === id);
+
+  const dinner = { current: 'salmon', votes: { jo: null, sam: 'yes' }, rejected: new Set(), confirmed: false, showReasons: false, added: false };
+  const REASONS = [
+    { id: 'pesado', label: 'Muy pesado' },
+    { id: 'tiempo', label: 'Lleva mucho tiempo' },
+    { id: 'reciente', label: 'Lo comimos hace poco' },
+    { id: 'apetece', label: 'No me apetece' }
+  ];
+
+  /* ---------- helpers ---------- */
+  const inList = n => shop.some(s => s.name === n && !s.done);
+  const have = n => pantry.has(n);
+  const missing = r => r.ing.filter(n => !have(n));
+  const match = r => (r.ing.length - missing(r).length) / r.ing.length;
+  const kcalFor = (r, w) => {
+    const d = people[w].diet;
+    if (d && r.light && r.kcal > d.dinnerMax) return { kcal: r.light.kcal, note: r.light.note, light: true };
+    return { kcal: r.kcal, note: d ? 'Ración normal: ya entra en su objetivo' : 'Ración normal', light: false };
+  };
+  const dietOk = r => Object.keys(people).every(w => !people[w].diet || kcalFor(r, w).kcal <= people[w].diet.dinnerMax);
+  const plate = (r, cls = 'plate') => {
+    const n = r.hues.length, step = 360 / n;
+    const stops = r.hues.map((h, i) => `${h} ${i * step}deg ${(i + 1) * step}deg`).join(',');
+    return `<div class="${cls}" style="background: conic-gradient(from 20deg, ${stops})" aria-hidden="true"></div>`;
+  };
+  const chf = v => 'CHF ' + v.toFixed(2);
+  const av = w => `<span class="av ${w}">${w === 'both' ? 'J+S' : people[w].name[0]}</span>`;
+
+  const icon = {
+    grip: '<svg width="14" height="18" viewBox="0 0 14 18" fill="currentColor" aria-hidden="true"><circle cx="4" cy="3" r="1.6"/><circle cx="10" cy="3" r="1.6"/><circle cx="4" cy="9" r="1.6"/><circle cx="10" cy="9" r="1.6"/><circle cx="4" cy="15" r="1.6"/><circle cx="10" cy="15" r="1.6"/></svg>',
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    more: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+    ok: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    swap: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    leaf: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+
+  /* ---------- notifications & toast ---------- */
+  function notify(to, text) {
+    const targets = to === 'both' ? Object.keys(people).filter(w => w !== me) : [to];
+    targets.forEach(w => { if (w === me) return; notes[w].unshift({ text, when: 'ahora' }); unread[w]++; });
+    renderTop();
+  }
+  let toastT;
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  /* ---------- top bar ---------- */
+  function renderTop() {
+    $('#persona').innerHTML = `${av(me)}<span>${people[me].name}</span><small>· cambiar</small>`;
+    const d = $('#bellDot'); d.hidden = !unread[me]; d.textContent = unread[me];
+  }
+
+  /* ---------- rows ---------- */
+  function rowHTML(it, opts = {}) {
+    const meta = [it.time, opts.showDay ? days[it.day] : null, nameOf(it.who)].filter(Boolean).join(' · ');
+    return `<div class="row ${it.done ? 'done' : ''}" data-id="${it.id}">
+      ${opts.drag ? `<button class="grip" data-grip="${it.id}" aria-label="Arrastrar ${esc(it.title)}">${icon.grip}</button>` : ''}
+      ${it.kind === 'task' ? `<button class="check ${it.done ? 'on' : ''}" data-toggle="${it.id}" aria-label="Marcar como hecha">${it.done ? icon.check : ''}</button>` : av(it.who)}
+      <div class="t"><b>${esc(it.title)}</b><span>${esc(meta)}</span></div>
+      <span class="kind ${it.kind}">${it.kind === 'task' ? 'Tarea' : 'Evento'}</span>
+      <button class="more" data-open="${it.id}" aria-label="Opciones">${icon.more}</button>
+    </div>`;
+  }
+
+  /* ---------- views ---------- */
+  function renderHoy() {
+    const r = R(dinner.current);
+    const today = items.filter(i => i.day === TODAY);
+    const tomorrow = items.filter(i => i.day === TODAY + 1);
+    const load = { jo: 0, sam: 0 };
+    items.filter(i => i.kind === 'task').forEach(i => { if (i.who === 'both') { load.jo += .5; load.sam += .5; } else load[i.who]++; });
+    const tot = load.jo + load.sam || 1;
+    const myVote = dinner.votes[me], theirVote = dinner.votes[other()];
+    const status = dinner.confirmed ? '<span class="state-yes">Confirmada por los dos</span>'
+      : myVote === 'yes' ? `Esperando a ${people[other()].name}`
+      : theirVote === 'yes' ? `${people[other()].name} ya dijo que sí. Falta tu voto.` : 'Pendiente de votar';
+    $('#v-hoy').innerHTML = `
+      <div class="eyebrow">Lunes 19 de octubre</div>
+      <h1>Buenas tardes, ${people[me].name}</h1>
+      <div class="card" style="display:flex;gap:12px;align-items:center">
+        ${plate(r, 'mini-plate')}
+        <div style="flex:1;min-width:0"><div class="eyebrow">Cena de esta noche</div><b style="display:block">${esc(r.name)}</b><span class="muted" style="font-size:13px">${status}</span></div>
+        <button class="btn small primary" data-go="cena">${dinner.confirmed ? 'Ver' : 'Decidir'}</button>
+      </div>
+      <h2>Hoy <span class="count">${today.filter(i => !i.done).length} pendientes</span></h2>
+      <div class="list">${today.map(i => rowHTML(i)).join('') || '<div class="empty-day">Nada para hoy</div>'}</div>
+      <h2>Mañana <span class="count">${days[1]}</span></h2>
+      <div class="list">${tomorrow.map(i => rowHTML(i)).join('') || '<div class="empty-day">Nada para mañana</div>'}</div>
+      <h2>Reparto de tareas esta semana</h2>
+      <div class="card">
+        <div class="balance"><i style="width:${load.jo / tot * 100}%;background:var(--jo)"></i><i style="width:${load.sam / tot * 100}%;background:var(--sam)"></i></div>
+        <div class="legend"><span><b style="color:var(--jo)">Jo</b> <span class="mono">${load.jo}</span></span><span><span class="mono">${load.sam}</span> <b style="color:var(--sam)">Sam</b></span></div>
+        <div class="muted" style="font-size:13px;margin-top:6px">Las tareas compartidas cuentan la mitad para cada uno.</div>
+      </div>`;
+  }
+
+  function renderSemana() {
+    $('#v-semana').innerHTML = `
+      <div class="eyebrow">Semana 43 · 19–25 oct</div>
+      <h1>Semana</h1>
+      <p class="muted" style="margin:-8px 0 14px;font-size:13.5px">Arrastra por el asa para cambiar de día.</p>
+      ${days.map((d, i) => {
+        const list = items.filter(it => it.day === i).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+        return `<div class="day" data-day="${i}">
+          <div class="dayhead"><b>${d}</b>${i === TODAY ? '<span class="today">Hoy</span>' : ''}<span class="count mono muted">${list.length || ''}</span></div>
+          <div class="list">${list.map(it => rowHTML(it, { drag: true })).join('') || '<div class="empty-day">Suelta aquí</div>'}</div>
+        </div>`;
+      }).join('')}`;
+  }
+
+  function renderCena() {
+    const r = R(dinner.current);
+    const miss = missing(r);
+    const myVote = dinner.votes[me];
+    const voteCard = w => {
+      const v = dinner.votes[w];
+      return `<div class="vote ${v || ''}">${av(w)}<div class="t"><b>${people[w].name}${w === me ? ' (tú)' : ''}</b>
+        ${v === 'yes' ? '<span class="state-yes">Sí, me apetece</span>' : v === 'no' ? '<span class="state-no">Pidió otra idea</span>' : '<span class="muted">Sin votar</span>'}</div></div>`;
+    };
+    const portion = w => {
+      const p = kcalFor(r, w), d = people[w].diet;
+      const meter = d ? `<div class="meter"><i style="width:${Math.min(100, p.kcal / (d.dinnerMax * 1.25) * 100)}%"></i><span class="cap" style="left:${100 / 1.25}%"></span></div>` : '';
+      return `<div class="portion">${av(w)}<div class="t"><b>${people[w].name} · ${d ? esc(d.label) : 'Sin dieta'}</b><span>${esc(p.note)}</span>${meter}</div>
+        <span class="mono">${p.kcal} kcal</span></div>`;
+    };
+    const alts = recipes.filter(x => x.id !== r.id).sort((a, b) => match(b) - match(a)).slice(0, 3);
+
+    let actions;
+    if (dinner.confirmed) {
+      const toAdd = miss.filter(n => !inList(n));
+      actions = `<div class="banner">${icon.leaf}<div><b>Cena decidida.</b> Los dos habéis dicho que sí.
+        ${miss.length ? `<div style="margin-top:4px">${toAdd.length ? `Falta ${toAdd.join(', ')}.` : 'Lo que falta ya está en la lista.'}</div>` : '<div style="margin-top:4px">Tenéis todo en casa.</div>'}</div></div>
+        <div class="actions" style="margin-top:10px">
+          ${toAdd.length ? `<button class="btn primary" data-act="addmissing">Añadir ${toAdd.length} a la compra</button>` : ''}
+          <button class="btn" data-act="recipe">Ver receta</button>
+        </div>`;
+    } else if (myVote === 'yes') {
+      actions = `<div class="banner">${icon.leaf}<div>Votaste que sí. Esperando a ${people[other()].name}; le hemos avisado.</div></div>
+        <div class="actions" style="margin-top:10px"><button class="btn" data-act="recipe">Ver receta</button><button class="btn ghosty" data-act="reject">Cambiar de idea</button></div>`;
+    } else {
+      actions = `<div class="actions">
+          <button class="btn primary" data-act="approve">${icon.ok} Me apetece</button>
+          <button class="btn" data-act="reject" aria-expanded="${dinner.showReasons}">${icon.swap} Otra idea</button>
+        </div>
+        ${dinner.showReasons ? `<div class="reasons" aria-label="¿Por qué?">${REASONS.map(x => `<button class="chip" data-reason="${x.id}">${x.label}</button>`).join('')}</div>
+        <div class="muted" style="font-size:12.5px;margin-top:6px">El motivo decide la siguiente propuesta.</div>` : ''}
+        <button class="linkbtn" data-act="recipe" style="margin-top:6px">Ver receta</button>`;
+    }
+
+    $('#v-cena').innerHTML = `
+      <div class="eyebrow">Cena · lunes 19</div>
+      <h1>¿Cenamos esto?</h1>
+      <div class="card">
+        <div class="dish">${plate(r)}<div style="min-width:0">
+          <h3>${esc(r.name)}</h3>
+          <div class="facts"><span class="chip mono">${r.time} min</span>
+          <span class="chip ${miss.length ? '' : 'ok'}">${r.ing.length - miss.length} de ${r.ing.length} en casa</span></div>
+        </div></div>
+        ${miss.length ? `<div class="facts" style="margin-top:12px">${miss.map(n => `<span class="chip warn">Falta ${esc(n)}${inList(n) ? ' · en la lista' : PRICE[n] ? ' · ' + chf(PRICE[n]) : ''}</span>`).join('')}</div>` : ''}
+        <div style="margin-top:10px">${portion('jo')}${portion('sam')}</div>
+      </div>
+      <div class="votes">${voteCard('jo')}${voteCard('sam')}</div>
+      ${actions}
+      <h2>Con lo que tenéis en casa</h2>
+      <div class="card">${alts.map(a => `<div class="alt">${plate(a, 'mini-plate')}<div class="t"><b>${esc(a.name)}</b>
+        <span><span class="mono">${a.time} min · ${kcalFor(a, 'sam').kcal}/${kcalFor(a, 'jo').kcal} kcal</span></span>
+        <div class="bar"><i style="width:${match(a) * 100}%"></i></div></div>
+        <button class="btn small" data-propose="${a.id}">Proponer</button></div>`).join('')}</div>`;
+  }
+
+  function renderCompras() {
+    const open = shop.filter(s => !s.done);
+    const total = open.reduce((t, s) => t + (PRICE[s.name] || 2.5), 0);
+    const groups = {};
+    open.forEach(s => { const a = AISLE[s.name] || 'Otros'; (groups[a] = groups[a] || []).push(s); });
+    const ranked = [...recipes].sort((a, b) => match(b) - match(a));
+    $('#v-compras').innerHTML = `
+      <div class="eyebrow">Lista compartida</div>
+      <h1>Compras</h1>
+      <div class="muted" style="margin:-8px 0 14px;font-size:13.5px"><span class="mono">${open.length}</span> artículos · aprox. <span class="mono">${chf(total)}</span> · ordenados por pasillo</div>
+      <form class="addbar" id="addForm"><input id="addInput" type="text" placeholder="Añadir, p. ej. calabacín" autocomplete="off" aria-label="Añadir artículo"><button class="btn small primary" type="submit">Añadir</button></form>
+      ${AISLE_ORDER.filter(a => groups[a]).map(a => `<div class="aisle">${a}</div><div class="list">${groups[a].map(s => `
+        <div class="row"><button class="check" data-buy="${s.id}" aria-label="Comprado: ${esc(s.name)}"></button>
+        <div class="t"><b>${esc(s.name)}${s.from ? `<span class="tag">${esc(s.from)}</span>` : ''}</b></div>
+        <span class="mono muted">${PRICE[s.name] ? chf(PRICE[s.name]) : ''}</span></div>`).join('')}</div>`).join('') || '<div class="empty-day" style="margin-top:12px">Lista vacía. Lo que añadáis aparece aquí para los dos.</div>'}
+      <h2>Qué podéis cocinar</h2>
+      <div class="card">${ranked.map(a => `<div class="alt">${plate(a, 'mini-plate')}<div class="t"><b>${esc(a.name)}</b>
+        <span>${missing(a).length ? 'Falta ' + missing(a).join(', ') : 'Tenéis todo'}</span><div class="bar"><i style="width:${match(a) * 100}%"></i></div></div>
+        <span class="mono muted">${Math.round(match(a) * 100)}%</span></div>`).join('')}</div>
+      <details class="pantry card" style="margin-top:12px;padding:0 14px"><summary>En la despensa <span class="mono muted">${pantry.size}</span></summary>
+        <div class="pantry-chips">${[...pantry].map(p => `<span class="chip">${esc(p)}</span>`).join('')}</div></details>`;
+  }
+
+  /* ---------- navigation ---------- */
+  let tab = 'hoy';
+  const renderers = { hoy: renderHoy, semana: renderSemana, cena: renderCena, compras: renderCompras };
+  function render() {
+    renderTop();
+    renderers[tab]();
+    document.querySelectorAll('.view').forEach(v => { v.hidden = v.id !== 'v-' + tab; });
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.tab === tab));
+    $('#fab').hidden = !(tab === 'hoy' || tab === 'semana');
+  }
+  function go(t) { tab = t; $('#main').scrollTop = 0; render(); }
+
+  /* ---------- sheet ---------- */
+  function openSheet(html) {
+    const s = $('#sheet'), sc = $('#scrim');
+    s.innerHTML = '<div class="handle"></div>' + html;
+    s.hidden = false; sc.hidden = false;
+    requestAnimationFrame(() => { s.classList.add('show'); sc.classList.add('show'); });
+  }
+  function closeSheet() {
+    const s = $('#sheet'), sc = $('#scrim');
+    s.classList.remove('show'); sc.classList.remove('show');
+    setTimeout(() => { s.hidden = true; sc.hidden = true; }, 250);
+  }
+
+  function addSheet() {
+    const o = other();
+    openSheet(`<h3>Nueva tarea o evento</h3>
+      <form id="newForm">
+        <div class="field"><label for="f-title">Qué hay que hacer</label><input id="f-title" type="text" placeholder="p. ej. Recoger el paquete" required></div>
+        <div class="field"><span class="lbl">Tipo</span><div class="seg" data-group="kind"><button type="button" class="chip sel" data-v="task">Tarea</button><button type="button" class="chip" data-v="event">Evento</button></div></div>
+        <div class="field"><span class="lbl">Día</span><div class="seg" data-group="day">${days.map((d, i) => `<button type="button" class="chip ${i === TODAY ? 'sel' : ''}" data-v="${i}">${d}</button>`).join('')}</div></div>
+        <div class="field"><label for="f-time">Hora (opcional)</label><input id="f-time" type="time"></div>
+        <div class="field"><span class="lbl">Para quién</span><div class="seg" data-group="who"><button type="button" class="chip" data-v="${me}">${people[me].name}</button><button type="button" class="chip sel" data-v="${o}">${people[o].name}</button><button type="button" class="chip" data-v="both">Los dos</button></div></div>
+        <label class="toggle" for="f-notify"><span>Avisar a ${people[o].name} ahora</span><input id="f-notify" type="checkbox" checked></label>
+        <div class="actions" style="margin-top:16px"><button type="button" class="btn" data-close>Cancelar</button><button class="btn primary" type="submit">Guardar</button></div>
+      </form>`);
+    setTimeout(() => $('#f-title')?.focus(), 260);
+  }
+
+  function itemSheet(id) {
+    const it = items.find(i => i.id === id); if (!it) return;
+    const o = other();
+    openSheet(`<h3>${esc(it.title)}</h3>
+      <div class="muted">${[it.kind === 'task' ? 'Tarea' : 'Evento', daysLong[it.day], it.time, nameOf(it.who)].filter(Boolean).join(' · ')}</div>
+      <div class="field"><span class="lbl">Mover a</span><div class="seg">${days.map((d, i) => `<button class="chip ${i === it.day ? 'sel' : ''}" data-moveto="${i}" data-item="${it.id}">${d}</button>`).join('')}</div></div>
+      <div class="actions" style="margin-top:16px;flex-wrap:wrap">
+        ${it.kind === 'task' ? `<button class="btn" data-toggle="${it.id}" data-close>${it.done ? 'Marcar pendiente' : 'Marcar como hecha'}</button>` : ''}
+        ${it.who !== me ? `<button class="btn primary" data-nudge="${it.id}">Recordárselo a ${it.who === 'both' ? people[o].name : people[it.who].name}</button>` : ''}
+      </div>
+      <button class="linkbtn" data-del="${it.id}" style="color:var(--no);margin-top:10px">Eliminar</button>`);
+  }
+
+  function recipeSheet() {
+    const r = R(dinner.current), ps = kcalFor(r, 'sam');
+    openSheet(`<div style="display:flex;gap:14px;align-items:center">${plate(r, 'mini-plate')}<h3>${esc(r.name)}</h3></div>
+      <div class="facts" style="margin:10px 0"><span class="chip mono">${r.time} min</span><span class="chip mono">2 raciones</span></div>
+      <h2 style="margin-top:10px">Ingredientes</h2>
+      <div class="card">${r.ing.map(n => `<div class="ing"><span>${esc(n)}</span>${have(n) ? '<span class="state-yes">En casa</span>' : inList(n) ? '<span class="muted">En la lista</span>' : '<span class="state-no">Falta</span>'}</div>`).join('')}</div>
+      <h2>Pasos</h2>
+      <ol class="steps">${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+      ${ps.light ? `<div class="note"><b>Para Sam:</b> ${esc(ps.note)}. Queda en <span class="mono">${ps.kcal} kcal</span>, dentro de su objetivo de cena.</div>` : ''}
+      <div class="actions" style="margin-top:16px"><button class="btn" data-close>Cerrar</button></div>`);
+  }
+
+  function inboxSheet() {
+    const list = notes[me];
+    unread[me] = 0; renderTop();
+    openSheet(`<h3>Avisos de ${people[me].name}</h3>
+      <div style="margin-top:8px">${list.length ? list.map(n => `<div class="notif">${av(other())}<div style="flex:1;min-width:0">${esc(n.text)}<div class="muted" style="font-size:12px">${n.when}</div></div></div>`).join('') : '<div class="muted" style="padding:16px 0">Sin avisos todavía. Cuando la otra persona mueva una tarea, te asigne algo o vote la cena, lo verás aquí.</div>'}</div>
+      <div class="actions" style="margin-top:16px"><button class="btn" data-close>Cerrar</button></div>`);
+  }
+
+  /* ---------- actions ---------- */
+  function moveItem(id, day) {
+    const it = items.find(i => i.id === id); if (!it || it.day === day) return;
+    it.day = day;
+    toast(`«${it.title}» movida al ${daysLong[day]}`);
+    if (it.who !== me) notify(it.who === 'both' ? other() : it.who, `${people[me].name} movió «${it.title}» al ${daysLong[day]}.`);
+    render();
+  }
+
+  function pickNext(reason) {
+    const pool = recipes.filter(r => r.id !== dinner.current && !dinner.rejected.has(r.id));
+    const cands = pool.length ? pool : recipes.filter(r => r.id !== dinner.current);
+    if (!pool.length) dinner.rejected.clear();
+    const lightK = r => Math.max(...Object.keys(people).map(w => kcalFor(r, w).kcal));
+    const by = {
+      pesado: (a, b) => (dietOk(b) - dietOk(a)) || lightK(a) - lightK(b),
+      tiempo: (a, b) => a.time - b.time || match(b) - match(a),
+      reciente: (a, b) => match(b) - match(a),
+      apetece: (a, b) => (dietOk(b) - dietOk(a)) || match(b) - match(a)
+    }[reason];
+    return [...cands].sort(by)[0];
+  }
+
+  function reject(reason) {
+    const old = R(dinner.current);
+    dinner.rejected.add(old.id);
+    const nx = pickNext(reason);
+    dinner.current = nx.id;
+    dinner.votes = { jo: null, sam: null };
+    dinner.showReasons = false; dinner.confirmed = false; dinner.added = false;
+    const label = REASONS.find(x => x.id === reason).label.toLowerCase();
+    notify(other(), `${people[me].name} pidió otra idea para la cena (${label}). Nueva propuesta: ${nx.name}.`);
+    toast(`Nueva propuesta: ${nx.name}`);
+    render();
+  }
+
+  function approve() {
+    const r = R(dinner.current);
+    dinner.votes[me] = 'yes';
+    if (dinner.votes[other()] === 'yes') {
+      dinner.confirmed = true;
+      notify(other(), `Cena confirmada: ${r.name}.`);
+      toast('Cena confirmada por los dos');
+    } else {
+      notify(other(), `${people[me].name} aprobó la cena: ${r.name}. Falta tu voto.`);
+      toast(`Avisado ${people[other()].name}`);
+    }
+    render();
+  }
+
+  function propose(id) {
+    dinner.rejected.add(dinner.current);
+    dinner.current = id; dinner.votes = { jo: null, sam: null }; dinner.votes[me] = 'yes';
+    dinner.confirmed = false; dinner.showReasons = false;
+    notify(other(), `${people[me].name} propone para cenar: ${R(id).name}.`);
+    toast('Propuesta enviada');
+    render();
+  }
+
+  function addMissing() {
+    const r = R(dinner.current);
+    const toAdd = missing(r).filter(n => !inList(n));
+    toAdd.forEach(n => shop.push({ id: nextId++, name: n, done: false, from: 'Cena de hoy' }));
+    notify(other(), `${people[me].name} añadió ${toAdd.join(', ')} a la compra.`);
+    toast(`${toAdd.length} añadido${toAdd.length > 1 ? 's' : ''} a la compra`);
+    render();
+  }
+
+  function buy(id) {
+    const s = shop.find(x => x.id === id); if (!s) return;
+    s.done = true; pantry.add(s.name);
+    shop = shop.filter(x => !x.done);
+    toast(`${s.name} pasa a la despensa`);
+    render();
+  }
+
+  /* ---------- events ---------- */
+  $('#device').addEventListener('click', e => {
+    const t = e.target.closest('button, [data-go]');
+    if (!t) { if (e.target.id === 'scrim') closeSheet(); return; }
+    const d = t.dataset;
+    if (t.classList.contains('tab')) return go(d.tab);
+    if (t.id === 'persona') { me = other(); toast(`Ahora ves la app como ${people[me].name}`); closeSheet(); return render(); }
+    if (t.id === 'bell') return inboxSheet();
+    if (t.id === 'fab') return addSheet();
+    if (d.go) return go(d.go);
+    if (d.toggle) {
+      const it = items.find(i => i.id === +d.toggle); it.done = !it.done;
+      if (it.done && it.who !== me) notify(it.who === 'both' ? other() : it.who, `${people[me].name} hizo «${it.title}».`);
+      if (d.close !== undefined) closeSheet();
+      return render();
+    }
+    if (d.open) return itemSheet(+d.open);
+    if (d.moveto) { moveItem(+d.item, +d.moveto); return closeSheet(); }
+    if (d.nudge) {
+      const it = items.find(i => i.id === +d.nudge), to = it.who === 'both' ? other() : it.who;
+      notify(to, `${people[me].name} te recuerda: «${it.title}» (${daysLong[it.day]}${it.time ? ', ' + it.time : ''}).`);
+      toast(`Recordatorio enviado a ${people[to].name}`); return closeSheet();
+    }
+    if (d.del) { const i = items.findIndex(x => x.id === +d.del); items.splice(i, 1); toast('Eliminada'); closeSheet(); return render(); }
+    if (d.act === 'approve') return approve();
+    if (d.act === 'reject') { dinner.votes[me] = null; dinner.showReasons = !dinner.showReasons; return render(); }
+    if (d.act === 'recipe') return recipeSheet();
+    if (d.act === 'addmissing') return addMissing();
+    if (d.reason) return reject(d.reason);
+    if (d.propose) return propose(d.propose);
+    if (d.buy) return buy(+d.buy);
+    if (d.close !== undefined) return closeSheet();
+    const seg = t.closest('.seg[data-group]');
+    if (seg) { seg.querySelectorAll('.chip').forEach(c => c.classList.toggle('sel', c === t)); }
+  });
+
+  $('#device').addEventListener('submit', e => {
+    e.preventDefault();
+    if (e.target.id === 'addForm') {
+      const inp = $('#addInput'), raw = inp.value.trim(); if (!raw) return;
+      const name = raw[0].toUpperCase() + raw.slice(1);
+      shop.push({ id: nextId++, name, done: false, from: null });
+      notify(other(), `${people[me].name} añadió ${name} a la compra.`);
+      toast(`${name} añadido · ${AISLE[name] || 'Otros'}`);
+      render(); setTimeout(() => $('#addInput')?.focus(), 0);
+    }
+    if (e.target.id === 'newForm') {
+      const f = e.target, sel = g => f.querySelector(`[data-group="${g}"] .sel`)?.dataset.v;
+      const title = $('#f-title').value.trim(); if (!title) return;
+      const it = { id: nextId++, title, kind: sel('kind'), day: +sel('day'), time: $('#f-time').value || null, who: sel('who'), done: false };
+      items.push(it);
+      if ($('#f-notify').checked && it.who !== me) notify(other(), `${people[me].name} te asignó «${title}» para el ${daysLong[it.day]}${it.time ? ' a las ' + it.time : ''}.`);
+      toast(it.who !== me && $('#f-notify').checked ? `Guardada y avisado ${people[other()].name}` : 'Guardada');
+      closeSheet(); render();
+    }
+  });
+
+  /* ---------- pointer drag (mouse + touch) ---------- */
+  let drag = null;
+  $('#device').addEventListener('pointerdown', e => {
+    const g = e.target.closest('[data-grip]'); if (!g) return;
+    e.preventDefault();
+    const row = g.closest('.row'), rect = row.getBoundingClientRect();
+    const ghost = row.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width = rect.width + 'px';
+    document.body.appendChild(ghost);
+    row.style.opacity = '.35';
+    drag = { id: +g.dataset.grip, ghost, row, dx: e.clientX - rect.left, dy: e.clientY - rect.top, over: null };
+    moveGhost(e);
+  });
+  function moveGhost(e) {
+    if (!drag) return;
+    drag.ghost.style.left = (e.clientX - drag.dx) + 'px';
+    drag.ghost.style.top = (e.clientY - drag.dy) + 'px';
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const day = el && el.closest('[data-day]');
+    if (drag.over !== day) { drag.over?.classList.remove('over'); day?.classList.add('over'); drag.over = day; }
+    const m = $('#main').getBoundingClientRect();
+    if (e.clientY < m.top + 50) $('#main').scrollTop -= 12;
+    else if (e.clientY > m.bottom - 110) $('#main').scrollTop += 12;
+  }
+  window.addEventListener('pointermove', e => { if (drag) { e.preventDefault(); moveGhost(e); } }, { passive: false });
+  window.addEventListener('pointerup', () => {
+    if (!drag) return;
+    const { id, ghost, row, over } = drag; drag = null;
+    ghost.remove(); row.style.opacity = ''; over?.classList.remove('over');
+    if (over) moveItem(id, +over.dataset.day);
+  });
+  window.addEventListener('pointercancel', () => { if (drag) { drag.ghost.remove(); drag.row.style.opacity = ''; drag.over?.classList.remove('over'); drag = null; } });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+  render();
+})();
+</script>
