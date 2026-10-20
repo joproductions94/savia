@@ -1,0 +1,15 @@
+{
+  "name": "Savia",
+  "short_name": "Savia",
+  "description": "Agenda partagé, dîner du soir et liste de courses pour la maison.",
+  "lang": "fr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F3F4F0",
+  "theme_color": "#0C2A1F",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
