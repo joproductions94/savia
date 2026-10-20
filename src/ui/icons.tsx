@@ -24,3 +24,7 @@ export const TabToday = (p: P) => <svg {...base({ size: 22, ...p })}><path {...S
 export const TabWeek = (p: P) => <svg {...base({ size: 22, ...p })}><rect x="3.5" y="5" width="17" height="15" rx="3.5" {...S} strokeWidth={1.9} /><path {...S} strokeWidth={1.9} d="M3.5 10h17M8 3v4M16 3v4" /></svg>;
 export const TabDinner = (p: P) => <svg {...base({ size: 22, ...p })}><circle cx="12" cy="12.5" r="7.5" {...S} strokeWidth={1.9} /><circle cx="12" cy="12.5" r="3.5" {...S} strokeWidth={1.9} /></svg>;
 export const TabBag = (p: P) => <svg {...base({ size: 22, ...p })}><path {...S} strokeWidth={1.9} d="M6 8h12l-1 11.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 19.5L6 8Z" /><path {...S} strokeWidth={1.9} d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>;
+export const Mic = (p: P) => <svg {...base(p)}><rect x="9" y="3" width="6" height="11" rx="3" {...S} /><path {...S} d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></svg>;
+export const Stop = (p: P) => <svg {...base(p)} fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3" /></svg>;
+export const Camera = (p: P) => <svg {...base(p)}><path {...S} d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.7l1.3-2h5l1.3 2h1.7A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-8Z" /><circle cx="12" cy="12.5" r="3.5" {...S} /></svg>;
+export const Sparkle = (p: P) => <svg {...base(p)}><path {...S} d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18.5l-1.8-5.9L4.5 10.8 10.2 9 12 3.5Z" /></svg>;

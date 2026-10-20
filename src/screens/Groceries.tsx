@@ -7,14 +7,14 @@ import {
   addFridge, addShopping, buyItem, fridgeNames, inShopping, missingFor, proposeDinner, removeFridge, removeShopping
 } from '../store/actions';
 import { useHouse } from '../store/store';
-import { Hero, Plate, Section, Chips } from '../ui/components';
+import { Hero, Plate, Section, Segmented } from '../ui/components';
 import * as I from '../ui/icons';
 
 const chf = (v: number) => v.toFixed(2);
 const DAY = 864e5;
 
 export function Groceries() {
-  const { state, update, me, other, toast, go } = useHouse();
+  const { state, update, me, other, toast, go, open } = useHouse();
   const [mode, setMode] = useState<'list' | 'fridge'>('list');
   const [text, setText] = useState('');
   const today = todayISO();
@@ -47,8 +47,8 @@ export function Groceries() {
 
   return (
     <>
-      <Hero>
-        <Chips label="Affichage" value={mode} onChange={setMode} options={[{ v: 'list', label: 'À acheter' }, { v: 'fridge', label: 'Frigo et placard' }]} />
+      <Hero title="Courses">
+        <Segmented label="Affichage" value={mode} onChange={setMode} options={[{ v: 'list', label: 'À acheter' }, { v: 'fridge', label: 'Frigo et placard' }]} />
         {mode === 'list' ? (
           <div className="bignum"><span className="v mono"><small>CHF</small>{chf(total)}</span><span className="r"><b className="mono">{state.shopping.length} article{state.shopping.length > 1 ? 's' : ''}</b>liste partagée avec {other.name}</span></div>
         ) : (
@@ -57,6 +57,7 @@ export function Groceries() {
         <form className="addbar" onSubmit={submit}>
           <input id="add-input" type="text" list="ingredients" value={text} onChange={e => setText(e.target.value)} autoComplete="off"
             placeholder={mode === 'list' ? 'Ajouter à la liste…' : 'Ajouter au frigo…'} aria-label={mode === 'list' ? 'Ajouter un article' : 'Ajouter un produit au frigo'} />
+          {mode === 'list' && <button type="button" className="mic-mini" onClick={() => open({ kind: 'voice', context: 'shopping' })} aria-label="Dicter les articles"><I.Mic size={18} /></button>}
           <button className="btn small dark" type="submit">Ajouter</button>
         </form>
         <datalist id="ingredients">{KNOWN_INGREDIENTS.map(n => <option key={n} value={n} />)}</datalist>

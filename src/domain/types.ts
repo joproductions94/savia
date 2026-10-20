@@ -29,6 +29,8 @@ export interface AgendaItem {
   assignee: Assignee;
   done: boolean;
   createdBy: MemberId;
+  /** Note vocale jointe (enregistrée dans la médiathèque de l'appareil). */
+  voiceId?: string;
 }
 
 export interface Notice {
@@ -45,6 +47,7 @@ export interface ShoppingItem {
   name: string;
   from: string | null;
   addedBy: MemberId;
+  voiceId?: string;
 }
 
 export interface FridgeItem {
@@ -64,6 +67,28 @@ export interface DinnerDay {
   status: 'pending' | 'confirmed' | 'cooked';
 }
 
+export type MealKind = 'petit-dej' | 'dejeuner' | 'diner' | 'collation';
+
+export interface MealLine {
+  name: string;
+  grams: number;
+  /** Calories pour 100 g, reprises du catalogue ou saisies à la main. */
+  kcal100: number;
+}
+
+/** Ce qu'une personne a réellement mangé, avec la photo de son assiette. */
+export interface MealLog {
+  id: string;
+  memberId: MemberId;
+  date: string;
+  meal: MealKind;
+  title: string;
+  recipeId: string | null;
+  photoId: string | null;
+  lines: MealLine[];
+  at: number;
+}
+
 export interface HouseState {
   version: 1;
   onboarded: boolean;
@@ -74,4 +99,5 @@ export interface HouseState {
   shopping: ShoppingItem[];
   fridge: FridgeItem[];
   dinners: Record<string, DinnerDay>;
+  meals: MealLog[];
 }

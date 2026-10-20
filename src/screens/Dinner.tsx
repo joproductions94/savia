@@ -11,6 +11,7 @@ import { useHouse } from '../store/store';
 import { Avatar, Hero, Plate, Section } from '../ui/components';
 import * as I from '../ui/icons';
 import { useTonight } from './Today';
+import { MealCard } from './Capture';
 
 const chf = (v: number) => v.toFixed(2);
 
@@ -26,6 +27,7 @@ export function Dinner() {
   const alts = rankRecipes({ members: state.members, fridge: fridgeNames(state), recent: recentDinners(state, date), exclude: [recipe.id] }).slice(0, 6);
   const have = recipe.ing.filter(i => !missing.includes(i.n)).length;
   const portions = state.members.map(m => ({ m, p: portionFor(recipe, m) }));
+  const plates = state.meals.filter(m => m.date === date && m.meal === 'diner');
 
   const approve = () => {
     update(d => { voteYes(d, date, me.id); });
@@ -41,7 +43,7 @@ export function Dinner() {
 
   return (
     <>
-      <Hero className="dish">
+      <Hero className="dish" title="Dîner">
         <div className="eyebrow">Proposition pour ce soir</div>
         <h1>{recipe.name}</h1>
         <div className="chips">
@@ -74,6 +76,12 @@ export function Dinner() {
                 {day.status === 'confirmed' && !toBuy.length && <button className="btn primary" onClick={() => { update(d => markCooked(d, date)); toast('Frigo mis à jour'); }}><I.Flame size={17} /> C’est cuisiné</button>}
                 <button className="btn" onClick={() => open({ kind: 'recipe', recipeId: recipe.id })}><I.Book size={16} /> Recette</button>
               </div>
+              <button className="photo-cta" onClick={() => open({ kind: 'meal', recipeId: recipe.id })}>
+                <span className="ic"><I.Camera size={20} /></span>
+                <span className="t"><b>Photo et portions</b><span>Photographiez votre assiette et ajustez les grammes</span></span>
+                <I.ChevronR size={16} />
+              </button>
+              {plates.length > 0 && <div className="list boxed plates">{plates.map(m => <MealCard key={m.id} id={m.id} />)}</div>}
             </>
           ) : myVote === 'yes' ? (
             <>

@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { HouseState, Member } from '../domain/types';
+import type { Assignee, HouseState, Member } from '../domain/types';
+
+export interface AddDraft { title: string; kind: 'task' | 'event'; date: string; time: string | null; assignee: Assignee; voiceId?: string }
 import { emptyState, memberOf, otherOf } from './actions';
 
 const KEY = 'savia:v1';
@@ -8,7 +10,7 @@ function load(): HouseState | null {
   try {
     const raw = localStorage.getItem(KEY);
     const s = raw ? (JSON.parse(raw) as HouseState) : null;
-    return s && s.version === 1 ? s : null;
+    return s && s.version === 1 ? { ...s, meals: s.meals ?? [] } : null;
   } catch {
     return null;
   }
@@ -19,12 +21,15 @@ function save(s: HouseState) {
 }
 
 export type Sheet =
-  | { kind: 'add'; date?: string }
+  | { kind: 'add'; date?: string; draft?: AddDraft }
   | { kind: 'item'; id: string }
   | { kind: 'recipe'; recipeId: string }
   | { kind: 'inbox' }
   | { kind: 'profile' }
-  | { kind: 'diet'; memberId: string };
+  | { kind: 'diet'; memberId: string }
+  | { kind: 'create' }
+  | { kind: 'voice'; context: 'auto' | 'shopping' }
+  | { kind: 'meal'; id?: string; recipeId?: string };
 
 export type Tab = 'today' | 'week' | 'dinner' | 'groceries';
 

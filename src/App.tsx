@@ -9,16 +9,18 @@ import { TabBar, Toast } from './ui/components';
 
 export function App() {
   const { state, tab } = useHouse();
-  if (!state.onboarded || state.members.length < 2) return <div className="shell"><Onboarding /></div>;
+  if (!state.onboarded || state.members.length < 2) return <div className="frame"><div className="shell"><Onboarding /></div></div>;
   return (
-    <div className="shell">
-      <main className="view">
-        {tab === 'today' && <Today />}
-        {tab === 'week' && <Week />}
-        {tab === 'dinner' && <Dinner />}
-        {tab === 'groceries' && <Groceries />}
-      </main>
+    <div className="frame">
       <TabBar />
+      <div className="shell">
+        <main className="view" key={tab}>
+          {tab === 'today' && <Today />}
+          {tab === 'week' && <Week />}
+          {tab === 'dinner' && <Dinner />}
+          {tab === 'groceries' && <Groceries />}
+        </main>
+      </div>
       <SheetHost />
       <Toast />
     </div>

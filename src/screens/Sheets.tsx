@@ -6,18 +6,19 @@ import { isStaple } from '../domain/ingredients';
 import { EXCLUSION_LABEL } from '../domain/recipes';
 import type { Assignee } from '../domain/types';
 import { addItem, deleteItem, emptyState, inShopping, memberOf, moveItem, nameOf, nudgeItem, toggleItem } from '../store/actions';
-import { useHouse, type Sheet } from '../store/store';
+import { useHouse, type AddDraft, type Sheet } from '../store/store';
 import { Avatar, Chips, Plate, SheetFrame } from '../ui/components';
 import { DietForm, draftOf, type DietDraft } from './DietForm';
+import { CreateSheet, MealSheet, VoiceSheet, VoicePlayer } from './Capture';
 
-function AddSheet({ date }: { date?: string }) {
+function AddSheet({ date, draft }: { date?: string; draft?: AddDraft }) {
   const { update, me, other, close, toast } = useHouse();
   const today = todayISO();
-  const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<'task' | 'event'>('task');
-  const [day, setDay] = useState(date ?? today);
-  const [time, setTime] = useState('');
-  const [who, setWho] = useState<Assignee>(other.id);
+  const [title, setTitle] = useState(draft?.title ?? '');
+  const [kind, setKind] = useState<'task' | 'event'>(draft?.kind ?? 'task');
+  const [day, setDay] = useState(draft?.date ?? date ?? today);
+  const [time, setTime] = useState(draft?.time ?? '');
+  const [who, setWho] = useState<Assignee>(draft?.assignee ?? other.id);
   const [tell, setTell] = useState(true);
   const next = Array.from({ length: 7 }, (_, i) => addDays(today, i));
 
@@ -25,7 +26,7 @@ function AddSheet({ date }: { date?: string }) {
     e.preventDefault();
     if (!title.trim()) return;
     const notify = tell && who !== me.id;
-    update(d => addItem(d, { title: title.trim(), kind, date: day, time: time || null, assignee: who }, me.id, notify));
+    update(d => addItem(d, { title: title.trim(), kind, date: day, time: time || null, assignee: who, voiceId: draft?.voiceId }, me.id, notify));
     toast(notify ? `Enregistré · notification envoyée à ${other.name}` : 'Enregistré');
     close();
   };
@@ -71,6 +72,7 @@ function ItemSheet({ id }: { id: string }) {
     <>
       <h3>{it.title}</h3>
       <div className="sub">{[it.kind === 'task' ? 'Tâche' : 'Événement', relativeDay(it.date), it.time, nameOf(state, it.assignee)].filter(Boolean).join(' · ')}</div>
+      {it.voiceId && <VoicePlayer id={it.voiceId} />}
       <div className="field"><span className="lbl">Déplacer à</span>
         <div className="seg">{days.map(iso => <button key={iso} className={`chip${iso === it.date ? ' sel' : ''}`} onClick={() => move(iso)}>{dayShort(iso)} {dayNum(iso)}</button>)}</div>
         <div className="row-fields">
@@ -193,7 +195,10 @@ const keyOf = (s: Sheet | null) => (s ? JSON.stringify(s) : null);
 export function SheetHost() {
   const { sheet, close } = useHouse();
   let body = null;
-  if (sheet?.kind === 'add') body = <AddSheet date={sheet.date} />;
+  if (sheet?.kind === 'add') body = <AddSheet date={sheet.date} draft={sheet.draft} />;
+  if (sheet?.kind === 'create') body = <CreateSheet />;
+  if (sheet?.kind === 'voice') body = <VoiceSheet context={sheet.context} />;
+  if (sheet?.kind === 'meal') body = <MealSheet id={sheet.id} recipeId={sheet.recipeId} />;
   if (sheet?.kind === 'item') body = <ItemSheet id={sheet.id} />;
   if (sheet?.kind === 'recipe') body = <RecipeSheet recipeId={sheet.recipeId} />;
   if (sheet?.kind === 'inbox') body = <InboxSheet />;

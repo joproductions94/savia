@@ -2,7 +2,7 @@ import { relativeDay } from '../domain/dates';
 import { canonical, isStaple, normalize } from '../domain/ingredients';
 import { recipeById, RECIPES } from '../domain/recipes';
 import { rankRecipes } from '../domain/suggest';
-import type { AgendaItem, Assignee, DinnerDay, HouseState, Member, MemberId, RejectReason } from '../domain/types';
+import type { AgendaItem, Assignee, DinnerDay, HouseState, MealLog, Member, MemberId, RejectReason } from '../domain/types';
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
@@ -11,7 +11,7 @@ export const otherOf = (s: HouseState, id: MemberId): Member => s.members.find(m
 export const nameOf = (s: HouseState, a: Assignee) => (a === 'both' ? 'Tous les deux' : memberOf(s, a).name);
 
 export function emptyState(): HouseState {
-  return { version: 1, onboarded: false, members: [], me: '', items: [], notices: [], shopping: [], fridge: [], dinners: {} };
+  return { version: 1, onboarded: false, members: [], me: '', items: [], notices: [], shopping: [], fridge: [], dinners: {}, meals: [] };
 }
 
 /** Prévient l'autre (ou les autres) personne(s) concernée(s) ; jamais l'auteur. */
@@ -173,3 +173,17 @@ export function missingFor(s: HouseState, recipeId: string): string[] {
 
 export const inShopping = (s: HouseState, name: string) => s.shopping.some(x => normalize(x.name) === normalize(name));
 
+
+/* ---------- journal des repas ---------- */
+
+export const mealKcal = (lines: { grams: number; kcal100: number }[]) => Math.round(lines.reduce((t, l) => t + (l.grams * l.kcal100) / 100, 0));
+
+export function dayKcal(s: HouseState, memberId: MemberId, date: string): number {
+  return s.meals.filter(m => m.memberId === memberId && m.date === date).reduce((t, m) => t + mealKcal(m.lines), 0);
+}
+
+export function saveMeal(d: HouseState, log: MealLog) {
+  d.meals = [log, ...d.meals.filter(m => m.id !== log.id)];
+}
+
+export const deleteMeal = (d: HouseState, id: string) => { d.meals = d.meals.filter(m => m.id !== id); };

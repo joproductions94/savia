@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { addDays, dayFull, isoWeek, todayISO } from '../domain/dates';
 import { recipeById } from '../domain/recipes';
-import { ensureDinner } from '../store/actions';
+import { dayKcal, ensureDinner } from '../store/actions';
+import { MealCard } from './Capture';
+import * as I from '../ui/icons';
 import { useHouse } from '../store/store';
 import { Avatar, Hero, ItemRow, Plate, Section } from '../ui/components';
 
@@ -22,7 +24,7 @@ export function dinnerStatus(votes: Record<string, 'yes' | null>, status: string
 }
 
 export function Today() {
-  const { state, me, other, go } = useHouse();
+  const { state, me, other, go, open } = useHouse();
   const { date, day } = useTonight();
   const today = state.items.filter(i => i.date === date).sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'));
   const tomorrow = state.items.filter(i => i.date === addDays(date, 1)).sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'));
@@ -36,10 +38,11 @@ export function Today() {
     .forEach(i => { if (i.assignee === 'both') state.members.forEach(m => { load[m.id] += 0.5; }); else load[i.assignee] = (load[i.assignee] ?? 0) + 1; });
   const total = Object.values(load).reduce((a, b) => a + b, 0) || 1;
   const hour = new Date().getHours();
+  const meals = state.meals.filter(m => m.date === date).sort((a, b) => a.at - b.at);
 
   return (
     <>
-      <Hero>
+      <Hero title="Aujourd’hui">
         <div className="eyebrow">{dayFull(date)} · Semaine {isoWeek(date)}</div>
         <h1>{hour < 18 ? 'Bonjour' : 'Bonsoir'}, {me.name}</h1>
         <p className="sub">{pending ? `${pending} chose${pending > 1 ? 's' : ''} à faire aujourd’hui.` : 'Rien d’urgent aujourd’hui.'} {day?.status === 'pending' ? 'Le dîner attend vos votes.' : day ? 'Le dîner est décidé.' : ''}</p>
@@ -57,11 +60,17 @@ export function Today() {
             <button className="btn small primary" onClick={() => go('dinner')}>{day?.status === 'pending' ? 'Voter' : 'Voir'}</button>
           </div>
         )}
+        {me.diet.enabled && <CalorieRing eaten={dayKcal(state, me.id, date)} target={me.diet.kcalDay} onAdd={() => open({ kind: 'meal' })} />}
         <Section title="Aujourd’hui" aside={`${today.length} au programme`}>
           {today.length ? <div className="list boxed">{today.map(i => <ItemRow key={i.id} it={i} showTime />)}</div> : <div className="empty">Rien de prévu. Touchez + pour ajouter une tâche.</div>}
         </Section>
         <Section title="Demain">
           {tomorrow.length ? <div className="list boxed">{tomorrow.map(i => <ItemRow key={i.id} it={i} showTime />)}</div> : <div className="empty">Rien de prévu demain.</div>}
+        </Section>
+        <Section title="Repas du jour" aside={<button className="linkbtn inline" onClick={() => open({ kind: 'meal' })}><I.Camera size={15} /> Ajouter</button>}>
+          {meals.length
+            ? <div className="list boxed">{meals.map(m => <MealCard key={m.id} id={m.id} />)}</div>
+            : <button className="empty empty-action" onClick={() => open({ kind: 'meal' })}><I.Camera size={18} /> Photographiez votre assiette et notez les grammes de chaque portion.</button>}
         </Section>
         <Section title="Répartition des tâches" aside="± 7 jours">
           <div className="card pad">
@@ -78,5 +87,24 @@ export function Today() {
         </Section>
       </div>
     </>
+  );
+}
+
+function CalorieRing({ eaten, target, onAdd }: { eaten: number; target: number; onAdd: () => void }) {
+  const r = 34, c = 2 * Math.PI * r, pct = Math.min(1, eaten / target), over = eaten > target;
+  return (
+    <div className="card cal-card">
+      <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
+        <circle cx="42" cy="42" r={r} fill="none" stroke="var(--line)" strokeWidth="8" />
+        <circle cx="42" cy="42" r={r} fill="none" stroke={over ? 'var(--no)' : 'var(--accent)'} strokeWidth="8" strokeLinecap="round"
+          strokeDasharray={`${c * pct} ${c}`} transform="rotate(-90 42 42)" style={{ transition: 'stroke-dasharray .6s' }} />
+      </svg>
+      <div className="t">
+        <span className="k">Calories aujourd’hui</span>
+        <b className="mono">{eaten.toLocaleString('fr-CH')}<small> / {target.toLocaleString('fr-CH')}</small></b>
+        <span className="st">{over ? `${(eaten - target).toLocaleString('fr-CH')} kcal au-dessus de l’objectif` : `${(target - eaten).toLocaleString('fr-CH')} kcal restantes`}</span>
+      </div>
+      <button className="btn small" onClick={onAdd} aria-label="Ajouter un repas"><I.Camera size={16} /></button>
+    </div>
   );
 }

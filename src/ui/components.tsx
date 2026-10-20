@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AgendaItem, Assignee } from '../domain/types';
 import type { Recipe } from '../domain/recipes';
 import { nameOf, memberOf, toggleItem } from '../store/actions';
@@ -34,8 +34,35 @@ export function HeroTop() {
   );
 }
 
-export function Hero({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <header className={`hero ${className}`}><HeroTop />{children}</header>;
+/** Hero d'écran ; en défilant, une barre compacte reprend le titre (grand titre façon iOS). */
+export function Hero({ children, className = '', title }: { children: ReactNode; className?: string; title: string }) {
+  const ref = useRef<HTMLElement>(null);
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setCompact(!e.isIntersecting), { rootMargin: '-96px 0px 0px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <>
+      <div className={`topbar${compact ? ' show' : ''}`} aria-hidden={!compact}><b>{title}</b></div>
+      <header ref={ref} className={`hero ${className}`}><HeroTop />{children}</header>
+    </>
+  );
+}
+
+export function Segmented<T extends string>({ value, options, onChange, label }: {
+  value: T; options: { v: T; label: ReactNode }[]; onChange: (v: T) => void; label: string;
+}) {
+  const i = Math.max(0, options.findIndex(o => o.v === value));
+  return (
+    <div className="segmented" role="tablist" aria-label={label} style={{ ['--n' as string]: options.length, ['--i' as string]: i }}>
+      <span className="thumb" aria-hidden="true" />
+      {options.map(o => <button key={o.v} role="tab" aria-selected={o.v === value} onClick={() => onChange(o.v)}>{o.label}</button>)}
+    </div>
+  );
 }
 
 export function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
@@ -64,6 +91,7 @@ export function ItemRow({ it, showTime, drag, onGrip }: {
         <span>
           <span className={`pill${it.kind === 'task' ? ' task' : ''}`}>{it.kind === 'task' ? 'Tâche' : 'Événement'}</span>
           {!showTime && it.time && <span className="mono">{it.time}</span>}
+          {it.voiceId && <span className="voice-tag"><I.Mic size={12} />Note vocale</span>}
           {nameOf(state, it.assignee)}
         </span>
       </button>
@@ -79,9 +107,10 @@ export function TabBar() {
   );
   return (
     <nav className="tabbar" role="tablist" aria-label="Navigation">
+      <span className="rail-brand"><span className="logo-mark"><I.Leaf size={16} /></span>Savia</span>
       <T id="today" label="Aujourd’hui" icon={<I.TabToday />} />
       <T id="week" label="Semaine" icon={<I.TabWeek />} />
-      <button className="add" onClick={() => open({ kind: 'add' })} aria-label="Nouvelle tâche ou événement"><I.Plus size={24} /></button>
+      <button className="add" onClick={() => open({ kind: 'create' })} aria-label="Ajouter"><I.Plus size={24} /><span className="rail-label">Ajouter</span></button>
       <T id="dinner" label="Dîner" icon={<I.TabDinner />} />
       <T id="groceries" label="Courses" icon={<I.TabBag />} />
     </nav>

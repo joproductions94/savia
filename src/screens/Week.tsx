@@ -75,7 +75,7 @@ export function Week() {
 
   return (
     <>
-      <Hero>
+      <Hero title="Semaine">
         <div className="week-nav">
           <button className="glass-btn icon" onClick={() => setAnchor(addDays(anchor, -7))} aria-label="Semaine précédente"><I.ChevronL size={16} /></button>
           <div><div className="eyebrow">{rangeLabel(days)}</div><h1>{days.includes(today) ? 'Votre semaine' : 'Semaine'}</h1></div>

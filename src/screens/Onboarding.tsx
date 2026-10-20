@@ -5,6 +5,8 @@ import { addFridge, emptyState, uid } from '../store/actions';
 import { useHouse } from '../store/store';
 import { DietForm, type DietDraft } from './DietForm';
 import * as I from '../ui/icons';
+import { Plate } from '../ui/components';
+import { recipeById } from '../domain/recipes';
 
 const blankDiet: DietDraft = { enabled: false, kcalDay: 1800, dinnerShare: 0.35, exclusions: [] };
 
@@ -34,7 +36,8 @@ export function Onboarding() {
     <div className="onb">
       <header className="hero onb-hero">
         <div className="hero-top"><span className="hero-brand"><I.Leaf size={16} />Savia</span><span className="spacer" /><span className="steps-dots" aria-label={`Étape ${step + 1} sur ${steps}`}>{Array.from({ length: steps }, (_, i) => <i key={i} className={i <= step ? 'on' : ''} />)}</span></div>
-        {step === 0 && <><div className="eyebrow">Bienvenue</div><h1>La maison organisée. Le dîner, décidé.</h1><p className="sub">Agenda partagé, dîner du soir proposé avec ce que vous avez, et liste de courses commune.</p></>}
+        {step === 0 && <><div className="eyebrow">Bienvenue</div><h1>La maison organisée. Le dîner, décidé.</h1><p className="sub">Agenda partagé, dîner du soir proposé avec ce que vous avez, et liste de courses commune.</p>
+          <div className="onb-plates">{['saumon-patate-douce', 'curry-pois-chiches', 'pates-pesto-roquette'].map(id => <Plate key={id} recipe={recipeById(id)!} size={120} />)}</div></>}
         {step === 1 && <><div className="eyebrow">Profil de {n(0)}</div><h1>Les repas de {n(0)}</h1><p className="sub">Si {n(0)} suit un régime, indiquez ses calories : on adapte sa portion du dîner.</p></>}
         {step === 2 && <><div className="eyebrow">Profil de {n(1)}</div><h1>Les repas de {n(1)}</h1><p className="sub">Chacun garde le même plat, avec sa propre portion.</p></>}
         {step === 3 && <><div className="eyebrow">Dernière étape</div><h1>Qu’avez-vous au frigo ?</h1><p className="sub">Touchez ce que vous avez déjà. Le dîner sera proposé à partir de ça.</p></>}
