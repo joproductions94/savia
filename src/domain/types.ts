@@ -3,6 +3,9 @@ export type Assignee = MemberId | 'both';
 
 export type Exclusion = 'vegetarien' | 'sans-gluten' | 'sans-lactose' | 'sans-porc' | 'sans-poisson';
 
+export const MEMBER_COLORS = ['amber', 'violet', 'teal', 'rose', 'sky', 'olive'] as const;
+export type MemberColor = (typeof MEMBER_COLORS)[number];
+
 export interface Diet {
   enabled: boolean;
   /** Calories que la personne mange par jour. */
@@ -14,7 +17,7 @@ export interface Diet {
 export interface Member {
   id: MemberId;
   name: string;
-  color: 'amber' | 'violet';
+  color: MemberColor;
   diet: Diet;
   exclusions: Exclusion[];
 }

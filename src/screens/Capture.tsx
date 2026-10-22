@@ -5,7 +5,7 @@ import { portionFor, dinnerBudget } from '../domain/nutrition';
 import { recipeById } from '../domain/recipes';
 import { parseVoice, type VoiceResult } from '../domain/voice';
 import type { MealKind, MealLine } from '../domain/types';
-import { addItem, addShopping, dayKcal, deleteMeal, mealKcal, memberOf, nameOf, saveMeal, uid } from '../store/actions';
+import { addItem, addShopping, concerned, dayKcal, deleteMeal, joinNames, mealKcal, memberOf, nameOf, saveMeal, uid } from '../store/actions';
 import { compressPhoto, deleteMedia, putMedia } from '../store/media';
 import { useHouse } from '../store/store';
 import { Chips, Segmented } from '../ui/components';
@@ -54,7 +54,7 @@ function Waves({ active }: { active: boolean }) {
 }
 
 export function VoiceSheet({ context }: { context: 'auto' | 'shopping' }) {
-  const { state, update, me, other, open, close, toast } = useHouse();
+  const { state, update, me, othersNames, open, close, toast } = useHouse();
   const today = todayISO();
   const dictation = useDictation('fr-FR');
   const recorder = useRecorder();
@@ -94,11 +94,11 @@ export function VoiceSheet({ context }: { context: 'auto' | 'shopping' }) {
     } else if (result?.kind === 'agenda') {
       const tell = result.assignee !== me.id;
       update(d => addItem(d, { title: result.title, kind: result.itemKind, date: result.date, time: result.time, assignee: result.assignee, voiceId: vid }, me.id, tell));
-      toast(tell ? `Créé · notification envoyée à ${other.name}` : 'Créé');
+      toast(tell ? `Créé · notification envoyée à ${joinNames(concerned(state, result.assignee, me.id).map(m => m.name))}` : 'Créé');
     } else if (vid) {
       // Enregistrement sans texte : on garde la note vocale comme tâche du jour.
       update(d => addItem(d, { title: `Note vocale de ${me.name}`, kind: 'task', date: today, time: null, assignee: 'both', voiceId: vid }, me.id, true));
-      toast(`Note vocale partagée avec ${other.name}`);
+      toast(`Note vocale partagée avec ${othersNames}`);
     }
     close();
   };

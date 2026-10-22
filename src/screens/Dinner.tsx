@@ -5,7 +5,7 @@ import { priceOf } from '../domain/ingredients';
 import { rankRecipes } from '../domain/suggest';
 import type { RejectReason } from '../domain/types';
 import {
-  addShopping, fridgeNames, inShopping, markCooked, missingFor, proposeDinner, REASON_LABEL, recentDinners, rejectDinner, voteYes
+  addShopping, joinNames, fridgeNames, inShopping, markCooked, missingFor, proposeDinner, REASON_LABEL, recentDinners, rejectDinner, voteYes
 } from '../store/actions';
 import { useHouse } from '../store/store';
 import { Avatar, Hero, Plate, Section } from '../ui/components';
@@ -16,7 +16,7 @@ import { MealCard } from './Capture';
 const chf = (v: number) => v.toFixed(2);
 
 export function Dinner() {
-  const { state, update, me, other, open, toast } = useHouse();
+  const { state, update, me, othersNames, open, toast } = useHouse();
   const { date, day } = useTonight();
   const [asking, setAsking] = useState(false);
   if (!day) return null;
@@ -28,10 +28,11 @@ export function Dinner() {
   const have = recipe.ing.filter(i => !missing.includes(i.n)).length;
   const portions = state.members.map(m => ({ m, p: portionFor(recipe, m) }));
   const plates = state.meals.filter(m => m.date === date && m.meal === 'diner');
+  const waiting = state.members.filter(m => m.id !== me.id && day.votes[m.id] !== 'yes');
 
   const approve = () => {
     update(d => { voteYes(d, date, me.id); });
-    toast(state.members.every(m => m.id === me.id || day.votes[m.id] === 'yes') ? 'Dîner validé par vous deux' : `Notification envoyée à ${other.name}`);
+    toast(waiting.length ? `Notification envoyée à ${joinNames(waiting.map(m => m.name))}` : 'Dîner validé par toute la famille');
   };
   const reject = (r: RejectReason) => {
     let name = '';
@@ -85,7 +86,7 @@ export function Dinner() {
             </>
           ) : myVote === 'yes' ? (
             <>
-              <div className="status-line"><span className="ic"><I.Clock size={17} /></span><div><b>En attente de {other.name}</b><span>{other.name} a reçu une notification. Le dîner est décidé quand vous dites oui tous les deux.</span></div></div>
+              <div className="status-line"><span className="ic"><I.Clock size={17} /></span><div><b>En attente de {joinNames(waiting.map(m => m.name))}</b><span>{waiting.length > 1 ? 'Ils ont reçu' : 'Une notification a été envoyée'}{waiting.length > 1 ? ' une notification' : ''}. Le dîner est décidé quand tout le monde a dit oui.</span></div></div>
               <div className="actions" style={{ marginTop: 14 }}>
                 <button className="btn" onClick={() => open({ kind: 'recipe', recipeId: recipe.id })}><I.Book size={16} /> Recette</button>
                 <button className="btn" onClick={() => setAsking(true)}><I.Swap size={17} /> Changer</button>
@@ -116,7 +117,7 @@ export function Dinner() {
           </div>
         )}
 
-        <Section title="Un plat, deux portions" aside="selon le régime">
+        <Section title="Un plat, une portion par personne" aside="selon le régime">
           <div className="card">
             {portions.map(({ m, p }) => (
               <div className="portion" key={m.id}>
@@ -143,7 +144,7 @@ export function Dinner() {
                   <div className="bar"><i style={{ width: `${(a.have.length / (a.have.length + a.missing.length || 1)) * 100}%` }} /></div>
                   <span className="meta">{a.missing.length ? `Manque ${a.missing.join(', ')}` : 'Tout est au frigo'}</span>
                   {a.rescues.length > 0 && <span className="meta rescue">Utilise {a.rescues.slice(0, 2).join(', ').toLowerCase()} avant qu’ils ne s’abîment</span>}
-                  <button className="btn small" onClick={() => { update(d => proposeDinner(d, date, me.id, a.recipe.id)); window.scrollTo({ top: 0, behavior: 'smooth' }); toast(`Proposition envoyée à ${other.name}`); }}>Proposer</button>
+                  <button className="btn small" onClick={() => { update(d => proposeDinner(d, date, me.id, a.recipe.id)); window.scrollTo({ top: 0, behavior: 'smooth' }); toast(`Proposition envoyée à ${othersNames}`); }}>Proposer</button>
                 </div>
               </div>
             ))}

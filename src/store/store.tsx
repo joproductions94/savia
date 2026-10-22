@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Assignee, HouseState, Member } from '../domain/types';
 
 export interface AddDraft { title: string; kind: 'task' | 'event'; date: string; time: string | null; assignee: Assignee; voiceId?: string }
-import { emptyState, memberOf, otherOf } from './actions';
+import { emptyState, joinNames, memberOf, othersOf } from './actions';
 
 const KEY = 'savia:v1';
 
@@ -38,7 +38,10 @@ interface Api {
   update: (fn: (draft: HouseState) => void) => void;
   replace: (s: HouseState) => void;
   me: Member;
-  other: Member;
+  /** Les autres membres de la famille. */
+  others: Member[];
+  /** Leurs prénoms : « Sam » ou « Sam et Léa ». */
+  othersNames: string;
   tab: Tab;
   go: (t: Tab) => void;
   sheet: Sheet | null;
@@ -76,7 +79,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     update,
     replace: setState,
     me: memberOf(state, state.me),
-    other: otherOf(state, state.me),
+    others: othersOf(state, state.me),
+    othersNames: joinNames(othersOf(state, state.me).map(m => m.name)),
     tab, go,
     sheet, open: setSheet, close: () => setSheet(null),
     toast, toastText

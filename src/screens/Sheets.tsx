@@ -5,20 +5,22 @@ import { portionFor, scaledQty, dinnerBudget } from '../domain/nutrition';
 import { isStaple } from '../domain/ingredients';
 import { EXCLUSION_LABEL } from '../domain/recipes';
 import type { Assignee } from '../domain/types';
-import { addItem, deleteItem, emptyState, inShopping, memberOf, moveItem, nameOf, nudgeItem, toggleItem } from '../store/actions';
+import { addItem, addMember, removeMember, concerned, everyoneLabel, joinNames, deleteItem, emptyState, inShopping, memberOf, moveItem, nameOf, nudgeItem, toggleItem } from '../store/actions';
 import { useHouse, type AddDraft, type Sheet } from '../store/store';
 import { Avatar, Chips, Plate, SheetFrame } from '../ui/components';
+import * as I from '../ui/icons';
 import { DietForm, draftOf, type DietDraft } from './DietForm';
 import { CreateSheet, MealSheet, VoiceSheet, VoicePlayer } from './Capture';
 
 function AddSheet({ date, draft }: { date?: string; draft?: AddDraft }) {
-  const { update, me, other, close, toast } = useHouse();
+  const { state, update, me, others, othersNames, close, toast } = useHouse();
   const today = todayISO();
   const [title, setTitle] = useState(draft?.title ?? '');
   const [kind, setKind] = useState<'task' | 'event'>(draft?.kind ?? 'task');
   const [day, setDay] = useState(draft?.date ?? date ?? today);
   const [time, setTime] = useState(draft?.time ?? '');
-  const [who, setWho] = useState<Assignee>(draft?.assignee ?? other.id);
+  const [who, setWho] = useState<Assignee>(draft?.assignee ?? others[0]?.id ?? 'both');
+  const told = joinNames(concerned(state, who, me.id).map(m => m.name));
   const [tell, setTell] = useState(true);
   const next = Array.from({ length: 7 }, (_, i) => addDays(today, i));
 
@@ -27,14 +29,14 @@ function AddSheet({ date, draft }: { date?: string; draft?: AddDraft }) {
     if (!title.trim()) return;
     const notify = tell && who !== me.id;
     update(d => addItem(d, { title: title.trim(), kind, date: day, time: time || null, assignee: who, voiceId: draft?.voiceId }, me.id, notify));
-    toast(notify ? `Enregistré · notification envoyée à ${other.name}` : 'Enregistré');
+    toast(notify ? `Enregistré · notification envoyée à ${told}` : 'Enregistré');
     close();
   };
 
   return (
     <form onSubmit={submit}>
       <h3>Nouvelle tâche ou événement</h3>
-      <div className="sub">Partagé avec {other.name} dès l’enregistrement.</div>
+      <div className="sub">Visible par {othersNames} dès l’enregistrement.</div>
       <label className="field" htmlFor="f-title"><span className="lbl">Quoi ?</span>
         <input id="f-title" className="big" type="text" autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="Récupérer le colis" required /></label>
       <div className="field"><span className="lbl">Type</span>
@@ -47,9 +49,9 @@ function AddSheet({ date, draft }: { date?: string; draft?: AddDraft }) {
         </div>
       </div>
       <div className="field"><span className="lbl">Pour qui ?</span>
-        <Chips<Assignee> label="Pour qui" value={who} onChange={setWho} options={[{ v: me.id, label: `${me.name} (vous)` }, { v: other.id, label: other.name }, { v: 'both', label: 'Tous les deux' }]} /></div>
+        <Chips<Assignee> label="Pour qui" value={who} onChange={setWho} options={[{ v: me.id, label: `${me.name} (vous)` }, ...others.map(m => ({ v: m.id as Assignee, label: m.name })), { v: 'both', label: everyoneLabel(state) }]} /></div>
       {who !== me.id && (
-        <label className="toggle" htmlFor="f-tell"><span><b>Prévenir {other.name}</b><span>Une notification arrive tout de suite.</span></span>
+        <label className="toggle" htmlFor="f-tell"><span><b>Prévenir {told}</b><span>Une notification arrive tout de suite.</span></span>
           <input id="f-tell" type="checkbox" checked={tell} onChange={e => setTell(e.target.checked)} /></label>
       )}
       <div className="actions sheet-actions"><button type="button" className="btn" onClick={close}>Annuler</button><button className="btn primary" type="submit">Enregistrer</button></div>
@@ -120,18 +122,18 @@ function RecipeSheet({ recipeId }: { recipeId: string }) {
 }
 
 function InboxSheet() {
-  const { state, update, me, other, close } = useHouse();
+  const { state, update, me, close } = useHouse();
   const list = state.notices.filter(n => n.to === me.id);
   useEffect(() => { if (list.some(n => !n.read)) update(d => d.notices.forEach(n => { if (n.to === me.id) n.read = true; })); }, [list, update, me.id]);
   const when = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'à l’instant' : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
   return (
     <>
       <h3>Notifications</h3>
-      <div className="sub">Ce que {other.name} a fait et qui vous concerne.</div>
+      <div className="sub">Ce que la famille a fait et qui vous concerne.</div>
       <div className="notifs">
         {list.length ? list.map(n => (
           <div className={`notif${n.read ? '' : ' unread'}`} key={n.id}><Avatar who={n.from} lg /><div className="t">{n.text}<div className="w">{when(n.at)}</div></div></div>
-        )) : <p className="fine">Rien pour l’instant. Quand {other.name} déplace une tâche, vous confie quelque chose ou vote pour le dîner, vous le verrez ici.</p>}
+        )) : <p className="fine">Rien pour l’instant. Quand quelqu’un déplace une de vos tâches, vous confie quelque chose ou vote pour le dîner, vous le verrez ici.</p>}
       </div>
       <div className="actions sheet-actions"><button className="btn" onClick={close}>Fermer</button></div>
     </>
@@ -141,10 +143,20 @@ function InboxSheet() {
 function ProfileSheet() {
   const { state, update, replace, me, open, close, toast } = useHouse();
   const [confirmReset, setConfirmReset] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [removing, setRemoving] = useState<string | null>(null);
+  const add = (e: FormEvent) => {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    update(d => { addMember(d, name); });
+    setNewName('');
+    toast(`${name} a rejoint la famille`);
+  };
   return (
     <>
-      <h3>Profils</h3>
-      <div className="sub">Régimes, exclusions et personne qui utilise cet appareil.</div>
+      <h3>La famille</h3>
+      <div className="sub">Chacun a son tableau de bord ; l’agenda, le dîner et les courses sont communs.</div>
       <div className="card profiles">
         {state.members.map(m => {
           const b = dinnerBudget(m);
@@ -153,15 +165,23 @@ function ProfileSheet() {
               <Avatar who={m.id} lg />
               <div className="t"><b>{m.name}{m.id === me.id ? ' (cet appareil)' : ''}</b>
                 <span>{b ? `${m.diet.kcalDay} kcal / jour · dîner ${b} kcal` : 'Sans régime'}{m.exclusions.length ? ' · ' + m.exclusions.map(x => EXCLUSION_LABEL[x]).join(', ') : ''}</span></div>
-              <button className="btn small" onClick={() => open({ kind: 'diet', memberId: m.id })}>Modifier</button>
+              <button className="btn small" onClick={() => open({ kind: 'diet', memberId: m.id })}>Repas</button>
+              {state.members.length > 2 && m.id !== me.id && (removing === m.id
+                ? <button className="btn small danger" onClick={() => { update(d => removeMember(d, m.id)); setRemoving(null); toast(`${m.name} a été retiré·e`); }}>Confirmer</button>
+                : <button className="more" aria-label={`Retirer ${m.name}`} onClick={() => setRemoving(m.id)}><I.Trash size={15} /></button>)}
             </div>
           );
         })}
+        <form className="profile add-member" onSubmit={add}>
+          <span className="av add"><I.Plus size={16} /></span>
+          <input id="new-member" type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ajouter un membre (prénom)" aria-label="Prénom du nouveau membre" />
+          <button className="btn small primary" type="submit" disabled={!newName.trim()}>Ajouter</button>
+        </form>
       </div>
-      <div className="field"><span className="lbl">Utiliser l’application en tant que</span>
+      <div className="field"><span className="lbl">Ce téléphone est celui de</span>
         <Chips label="Utilisateur" value={me.id} onChange={v => { update(d => { d.me = v; }); toast(`Vous utilisez Savia en tant que ${memberOf(state, v).name}`); close(); }}
           options={state.members.map(m => ({ v: m.id, label: m.name }))} />
-        <p className="fine">Sur ce prototype, les deux profils partagent cet appareil. La synchronisation entre deux téléphones arrive avec les comptes en ligne.</p>
+        <p className="fine">Chacun voit son propre tableau de bord. En attendant la synchronisation en ligne, vous pouvez changer de personne sur cet appareil.</p>
       </div>
       <div className="actions sheet-actions"><button className="btn" onClick={close}>Fermer</button></div>
       {!confirmReset

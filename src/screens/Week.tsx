@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, dayLong, dayNum, dayShort, rangeLabel, todayISO, weekDays } from '../domain/dates';
-import { memberOf, moveItem } from '../store/actions';
+import { concerned, joinNames, memberOf, moveItem } from '../store/actions';
 import { useHouse } from '../store/store';
-import { Hero, ItemRow } from '../ui/components';
+import { Hero, ItemRow, Segmented } from '../ui/components';
 import * as I from '../ui/icons';
 
 interface Drag { id: string; ghost: HTMLElement; row: HTMLElement; dx: number; dy: number; over: HTMLElement | null }
@@ -57,18 +57,20 @@ function useDragToDay(onDrop: (id: string, date: string) => void) {
 }
 
 export function Week() {
-  const { state, update, me, other, toast } = useHouse();
+  const { state, update, me, toast } = useHouse();
   const today = todayISO();
   const [anchor, setAnchor] = useState(today);
   const days = weekDays(anchor);
+  const [scope, setScope] = useState<'family' | 'me'>('family');
+  const visible = state.items.filter(i => scope === 'family' || i.assignee === me.id || i.assignee === 'both');
 
   const onDrop = useCallback((id: string, date: string) => {
     const it = state.items.find(i => i.id === id);
     if (!it || it.date === date) return;
     update(d => { moveItem(d, id, date, me.id); });
-    const told = it.assignee === 'both' ? other.name : it.assignee !== me.id ? memberOf(state, it.assignee).name : null;
+    const told = joinNames(concerned(state, it.assignee, me.id).map(m => m.name));
     toast(`Déplacé au ${dayLong(date)}${told ? ` · notification envoyée à ${told}` : ''}`);
-  }, [state, update, me.id, other.name, toast]);
+  }, [state, update, me.id, toast]);
   const startDrag = useDragToDay(onDrop);
 
   const byTime = (a: { time: string | null }, b: { time: string | null }) => (a.time ?? '99').localeCompare(b.time ?? '99');
@@ -78,12 +80,13 @@ export function Week() {
       <Hero title="Semaine">
         <div className="week-nav">
           <button className="glass-btn icon" onClick={() => setAnchor(addDays(anchor, -7))} aria-label="Semaine précédente"><I.ChevronL size={16} /></button>
-          <div><div className="eyebrow">{rangeLabel(days)}</div><h1>{days.includes(today) ? 'Votre semaine' : 'Semaine'}</h1></div>
+          <div><div className="eyebrow">{rangeLabel(days)}</div><h1>{days.includes(today) ? 'Cette semaine' : 'Semaine'}</h1></div>
           <button className="glass-btn icon" onClick={() => setAnchor(addDays(anchor, 7))} aria-label="Semaine suivante"><I.ChevronR size={16} /></button>
         </div>
+        <Segmented label="Afficher" value={scope} onChange={setScope} options={[{ v: 'family', label: 'Toute la famille' }, { v: 'me', label: `Seulement ${me.name}` }]} />
         <div className="week">
           {days.map(iso => {
-            const list = state.items.filter(i => i.date === iso);
+            const list = visible.filter(i => i.date === iso);
             return (
               <button key={iso} className={`wd${iso === today ? ' today' : ''}`} data-day={iso} aria-label={`${dayLong(iso)}, ${list.length} éléments`}
                 onClick={() => document.getElementById(`day-${iso}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
@@ -98,7 +101,7 @@ export function Week() {
       </Hero>
       <div className="content">
         {days.map(iso => {
-          const list = state.items.filter(i => i.date === iso).sort(byTime);
+          const list = visible.filter(i => i.date === iso).sort(byTime);
           return (
             <div key={iso} className="day" data-day={iso} id={`day-${iso}`}>
               <div className="dayhead">

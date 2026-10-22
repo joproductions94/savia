@@ -14,7 +14,7 @@ const chf = (v: number) => v.toFixed(2);
 const DAY = 864e5;
 
 export function Groceries() {
-  const { state, update, me, other, toast, go, open } = useHouse();
+  const { state, update, me, othersNames, toast, go, open } = useHouse();
   const [mode, setMode] = useState<'list' | 'fridge'>('list');
   const [text, setText] = useState('');
   const today = todayISO();
@@ -50,7 +50,7 @@ export function Groceries() {
       <Hero title="Courses">
         <Segmented label="Affichage" value={mode} onChange={setMode} options={[{ v: 'list', label: 'À acheter' }, { v: 'fridge', label: 'Frigo et placard' }]} />
         {mode === 'list' ? (
-          <div className="bignum"><span className="v mono"><small>CHF</small>{chf(total)}</span><span className="r"><b className="mono">{state.shopping.length} article{state.shopping.length > 1 ? 's' : ''}</b>liste partagée avec {other.name}</span></div>
+          <div className="bignum"><span className="v mono"><small>CHF</small>{chf(total)}</span><span className="r"><b className="mono">{state.shopping.length} article{state.shopping.length > 1 ? 's' : ''}</b>liste partagée avec {othersNames}</span></div>
         ) : (
           <div className="bignum"><span className="v mono">{state.fridge.length}<small style={{ marginLeft: 6 }}>produits</small></span><span className="r"><b>{state.fridge.filter(f => isPerishable(f.name)).length} frais</b>à cuisiner en priorité</span></div>
         )}
@@ -71,7 +71,7 @@ export function Groceries() {
       <div className="content">
         {mode === 'list' ? (
           <>
-            {state.shopping.length === 0 && <div className="empty lift-empty">Liste vide. Ce que vous ajoutez apparaît aussi chez {other.name}.</div>}
+            {state.shopping.length === 0 && <div className="empty lift-empty">Liste vide. Ce que vous ajoutez apparaît aussi chez {othersNames}.</div>}
             {AISLE_ORDER.filter(a => groups.has(a)).map(a => (
               <section key={a}>
                 <div className="aisle"><span>{a}</span><span className="mono">{groups.get(a)!.length}</span></div>

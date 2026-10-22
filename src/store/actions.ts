@@ -7,8 +7,41 @@ import type { AgendaItem, Assignee, DinnerDay, HouseState, MealLog, Member, Memb
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 export const memberOf = (s: HouseState, id: MemberId): Member => s.members.find(m => m.id === id) ?? s.members[0];
-export const otherOf = (s: HouseState, id: MemberId): Member => s.members.find(m => m.id !== id) ?? s.members[0];
-export const nameOf = (s: HouseState, a: Assignee) => (a === 'both' ? 'Tous les deux' : memberOf(s, a).name);
+export const othersOf = (s: HouseState, id: MemberId): Member[] => s.members.filter(m => m.id !== id);
+export const everyoneLabel = (s: HouseState) => (s.members.length > 2 ? 'Toute la famille' : 'Tous les deux');
+export const nameOf = (s: HouseState, a: Assignee) => (a === 'both' ? everyoneLabel(s) : memberOf(s, a).name);
+
+/** « Sam », « Sam et Léa », « Sam, Léa et Max ». */
+export function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}`;
+}
+
+/** Personnes prévenues quand « by » agit sur un élément confié à « a ». */
+export const concerned = (s: HouseState, a: Assignee, by: MemberId): Member[] =>
+  (a === 'both' ? othersOf(s, by) : s.members.filter(m => m.id === a && m.id !== by));
+
+const PALETTE: Member['color'][] = ['amber', 'violet', 'teal', 'rose', 'sky', 'olive'];
+
+export function addMember(d: HouseState, name: string): Member {
+  const used = new Set(d.members.map(m => m.color));
+  const m: Member = {
+    id: uid(), name: name.trim(), color: PALETTE.find(c => !used.has(c)) ?? PALETTE[d.members.length % PALETTE.length],
+    diet: { enabled: false, kcalDay: 1800, dinnerShare: 0.35 }, exclusions: []
+  };
+  d.members.push(m);
+  Object.values(d.dinners).forEach(day => { if (day.status === 'pending') day.votes[m.id] = null; });
+  return m;
+}
+
+/** Retire un membre : ses tâches deviennent communes, son vote disparaît. */
+export function removeMember(d: HouseState, id: MemberId) {
+  if (d.members.length <= 2 || id === d.me) return;
+  d.members = d.members.filter(m => m.id !== id);
+  d.items.forEach(i => { if (i.assignee === id) i.assignee = 'both'; });
+  d.notices = d.notices.filter(n => n.to !== id);
+  Object.values(d.dinners).forEach(day => { delete day.votes[id]; });
+}
 
 export function emptyState(): HouseState {
   return { version: 1, onboarded: false, members: [], me: '', items: [], notices: [], shopping: [], fridge: [], dinners: {}, meals: [] };
@@ -52,8 +85,7 @@ export function toggleItem(d: HouseState, id: string, by: MemberId) {
 export function nudgeItem(d: HouseState, id: string, by: MemberId) {
   const it = d.items.find(i => i.id === id);
   if (!it) return;
-  const to = it.assignee === 'both' ? otherOf(d, by).id : it.assignee;
-  notify(d, by, to, `${memberOf(d, by).name} vous rappelle « ${it.title} » (${relativeDay(it.date)}${it.time ? ', ' + it.time : ''}).`);
+  notify(d, by, it.assignee, `${memberOf(d, by).name} vous rappelle « ${it.title} » (${relativeDay(it.date)}${it.time ? ', ' + it.time : ''}).`);
 }
 
 export const deleteItem = (d: HouseState, id: string) => { d.items = d.items.filter(i => i.id !== id); };
@@ -86,7 +118,7 @@ export function voteYes(d: HouseState, date: string, by: MemberId): 'confirmed' 
     notify(d, by, 'both', `Dîner confirmé : ${r.name}.`);
     return 'confirmed';
   }
-  notify(d, by, 'both', `${memberOf(d, by).name} a dit oui pour le dîner : ${r.name}. Il manque votre vote.`);
+  for (const m of d.members) if (m.id !== by && day.votes[m.id] !== 'yes') notify(d, by, m.id, `${memberOf(d, by).name} a dit oui pour le dîner : ${r.name}. Il manque votre vote.`);
   return 'waiting';
 }
 

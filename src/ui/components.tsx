@@ -8,7 +8,7 @@ import * as I from './icons';
 
 export function Avatar({ who, lg }: { who: Assignee; lg?: boolean }) {
   const { state } = useHouse();
-  if (who === 'both') return <span className={`av both${lg ? ' lg' : ''}`}>{state.members.map(m => m.name[0]).join('+')}</span>;
+  if (who === 'both') return <span className={`av both${lg ? ' lg' : ''}`} title={state.members.length > 2 ? 'Toute la famille' : 'Tous les deux'}>{state.members.length > 2 ? 'Tous' : state.members.map(m => m.name[0]).join('+')}</span>;
   const m = memberOf(state, who);
   return <span className={`av ${m.color}${lg ? ' lg' : ''}`}>{m.name[0]?.toUpperCase()}</span>;
 }
