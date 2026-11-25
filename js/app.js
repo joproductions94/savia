@@ -115,6 +115,7 @@
   }
   const byDateDesc = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.updatedAt || 0) - (a.updatedAt || 0));
 
+  const SETUP_CATS = ['logement', 'assurances', 'garde', 'telecom', 'impots', 'credit'];
   const VIEWS = {
     home(st) {
       const d = doc(), p = st.plan;
@@ -124,6 +125,7 @@
           <p class="muted">${t('home.welcome.text')}</p>
           <form id="onboard" class="form">
             <label class="field">${t('home.welcome.salary')}<input name="salary" inputmode="decimal" required placeholder="6500"></label>
+            <label class="field">${t('home.welcome.payday')}<input name="payday" type="number" inputmode="numeric" min="1" max="28" value="${esc(d.settings.payday || 25)}"></label>
             <label class="field">${t('home.welcome.canton')}<select name="canton">${T.CANTON_LIST.map((c) => `<option ${c === (d.settings.canton || 'FR') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
             <button class="btn primary block">${t('home.welcome.go')}</button>
           </form>
@@ -139,7 +141,13 @@
       const paidOut = f.fixedPaid + f.invest.deducted + f.savings.deducted;
       const recent = F.live(d.tx).slice().sort(byDateDesc).slice(0, 5);
       const e = p.emergency;
+      const setup = F.live(d.fixed).length ? '' : `<section class="card setup">
+        <h2>${t('setup.title')}</h2>
+        <p class="small muted">${t('setup.text')}</p>
+        <div class="chips">${t('setup.items').split('|').map((label, i) => `<button class="chip" data-action="new-fixed" data-label="${esc(label)}" data-cat="${SETUP_CATS[i]}">+ ${esc(label)}</button>`).join('')}<button class="chip" data-action="new-fixed">+ ${t('setup.other')}</button></div>
+      </section>`;
       return `<div class="dash"><div class="col">
+      ${setup}
       <section class="card hero" aria-label="${esc(t('home.available'))}">
         <div class="hero-top"><span class="eyebrow">${t('home.available')}</span><span class="pill ${status[0]}">${t(status[1])}</span></div>
         <div class="big ${over ? 'neg' : ''}"><span class="num" id="heroNum" data-v="${f.left}">${fmt(f.left, { bare: true })}</span><span class="cur">CHF</span></div>
@@ -148,7 +156,7 @@
         <div class="meter ${over ? 'over' : ''}" data-mk="hero" style="--c:var(--primary)" role="img" aria-label="${Math.round(used)} %"><i style="width:${used.toFixed(1)}%"></i></div>
         <div class="hero-actions"><button class="btn" data-action="new-tx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>${t('tx.newExpense')}</button><button class="btn" data-action="new-income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${t('tx.newIncome')}</button></div>
         <dl class="stats">
-          <div><dt>${t('home.paidOut')}</dt><dd class="num">${fmt(paidOut, { bare: true })}</dd></div>
+          <div><dt>${t(setup ? 'home.estFixed' : 'home.paidOut')}</dt><dd class="num">${fmt(paidOut, { bare: true })}</dd></div>
           <div><dt>${t('home.spent')}</dt><dd class="num">${fmt(f.spentDaily, { bare: true })}</dd></div>
           <div><dt>${t('home.pending')}</dt><dd class="num">${fmt(f.pending, { bare: true })}</dd></div>
         </dl>
@@ -757,6 +765,15 @@
 
   // Dans la feuille de saisie : la catégorie suit le libellé tant qu'on ne l'a pas choisie ; la dictée remplit tout.
   document.addEventListener('input', (ev) => {
+    const fx = ev.target.closest('#fixForm');
+    if (fx) {
+      if (ev.target.name === 'cat') ev.target.dataset.chosen = '1';
+      else if (ev.target.name === 'label') {
+        const sel = fx.querySelector('[name=cat]');
+        if (!sel.dataset.chosen) { const c = F.categorize(ev.target.value, doc().settings.learned); sel.value = c === 'autre' ? 'logement' : c; }
+      }
+      return;
+    }
     const f = ev.target.closest('#txForm');
     if (!f) return;
     if (ev.target.name === 'cat') { ev.target.dataset.chosen = '1'; return; }
@@ -824,11 +841,11 @@
 
   function fixedDialog(c) {
     const d = doc(), existing = c && c.id ? c : null;
-    openDialog(existing ? t('fixedd.edit') : t('fixedd.new'), `<div class="form">
+    openDialog(existing ? t('fixedd.edit') : t('fixedd.new'), `<div class="form" id="fixForm">
       <label class="field">${t('fixedd.label')}<input name="label" value="${esc(c ? c.label || '' : '')}" autocomplete="off"></label>
       <div class="grid2"><label class="field">${t('fixedd.amount')}<input name="amount" inputmode="decimal" value="${esc(existing ? existing.amount : '')}" autocomplete="off"></label>
       <label class="field">${t('fixedd.day')}<input name="day" type="number" min="1" max="31" value="${esc(existing && existing.day ? existing.day : '')}"></label></div>
-      <label class="field">${t('txd.cat')}<select name="cat">${catOptions(c && c.cat ? c.cat : 'logement')}</select></label>
+      <label class="field">${t('txd.cat')}<select name="cat" ${c && c.cat ? 'data-chosen="1"' : ''}>${catOptions(c && c.cat ? c.cat : 'logement')}</select></label>
       <p class="hint">${t('fixedd.hint')}</p></div>`,
     `${existing ? `<button class="btn danger" value="delete">${t('dlg.delete')}</button>` : ''}<button class="btn primary" value="save">${t('dlg.save')}</button>`,
     (action, fd) => {
@@ -987,7 +1004,7 @@
     'new-tx': () => txDialog({ kind: 'expense' }),
     'new-income': () => txDialog({ kind: 'income' }),
     'make-key': async () => { try { ui.ingestKey = await S.createIngestKey(); render(); } catch (e) { toast(t('wallet.keyErr')); } },
-    'new-fixed': () => fixedDialog(null),
+    'new-fixed': (el) => fixedDialog(el && el.dataset.label ? { label: el.dataset.label, cat: el.dataset.cat } : null),
     'edit-fixed': (el) => { const c = F.live(doc().fixed).find((x) => x.id === el.dataset.id); if (c) fixedDialog(c); },
     'new-planned': (el) => plannedDialog({ month: el.dataset.month }),
     'edit-planned': (el) => { const x = F.live(doc().planned).find((p) => p.id === el.dataset.id); if (x) plannedDialog(x); },
@@ -1044,7 +1061,8 @@
   // réglages : enregistrés à chaque changement
   document.addEventListener('change', (ev) => {
     const el = ev.target;
-    if (!el.closest('#view') || !el.name) return;
+    // le formulaire d'accueil ne s'enregistre qu'au bouton « Commencer », sinon il disparaît dès le premier champ
+    if (!el.closest('#view') || !el.name || el.closest('#onboard')) return;
     const s = doc().settings;
     if (el.name === 'salary') setting({ salary: F.parseAmount(el.value) || 0 });
     else if (el.name === 'payday') setting({ payday: Math.min(28, Math.max(1, +el.value || 25)) });
@@ -1066,7 +1084,8 @@
       const fd = new FormData(ev.target);
       const sal = F.parseAmount(fd.get('salary'));
       if (!(sal > 0)) return;
-      setting({ salary: sal, canton: fd.get('canton') });
+      const pd = Math.round(+fd.get('payday'));
+      setting({ salary: sal, canton: fd.get('canton'), ...(pd >= 1 && pd <= 28 ? { payday: pd } : {}) });
     } else if (ev.target.id === 'signIn') {
       ev.preventDefault();
       const email = String(new FormData(ev.target).get('email') || '').trim();

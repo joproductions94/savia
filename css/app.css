@@ -410,3 +410,8 @@ html, body { overflow-x: clip; }
   @keyframes tabIcon { 40% { transform: translateY(-2px) scale(1.08); } }
   .btn:active, .chip:active, .state:active, .icon-btn:active { transform: scale(.96); }
 }
+
+/* première visite : les charges fixes à saisir, en un toucher */
+.setup { border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--line)); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); display: grid; gap: 10px; }
+.setup h2 { margin: 0; }
+.setup .chips { flex-wrap: wrap; overflow: visible; }

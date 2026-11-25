@@ -227,3 +227,11 @@ test('Apple Pay / Wallet : un paiement reçu par lien est ajouté une seule fois
   const rows = F.reconcile(d, 'n', [{ date: '2026-11-25', amount: -12.5, label: 'MIGROS RENENS' }]);
   assert.strictEqual(rows[0].dup, 'probable');
 });
+
+test('la devise écrite après le montant ne reste pas dans le libellé', () => {
+  for (const q of ['essence 70 fr.', 'essence 70 fr', 'essence 70 CHF', 'essence 70 francs']) {
+    const r = F.parseCommand(q, { today: '2026-11-25' });
+    assert.equal(r.amount, -70); assert.equal(r.label, 'Essence');
+  }
+  assert.equal(F.parseCommand('Fromagerie 12', { today: '2026-11-25' }).label, 'Fromagerie');
+});

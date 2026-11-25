@@ -516,7 +516,7 @@
     if (!amounts.length) return { ok: false, error: 'no-amount' };
     const a = amounts[amounts.length - 1];
     const amount = parseFloat(a[1].replace(/[’'\s]/g, '') + (a[2] ? '.' + a[2] : ''));
-    let label = (s.slice(0, a.index) + ' ' + s.slice(a.index + a[0].length)).replace(/\b(chf|francs?|franken|franchi|fr\.)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    let label = (s.slice(0, a.index) + ' ' + s.slice(a.index + a[0].length)).replace(/\b(chf|francs?|franken|franchi|fr)\b\.?/gi, ' ').replace(/\s+/g, ' ').trim();
     const income = o.kind === 'income' || (o.kind !== 'expense' && (INCOME_RE.test(fold(label)) || /^\+/.test(String(text).trim())));
     label = label.replace(/^\+\s*/, '');
     label = label.charAt(0).toUpperCase() + label.slice(1);
