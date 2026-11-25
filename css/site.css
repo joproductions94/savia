@@ -237,6 +237,7 @@ footer.site .bottom { margin-top: 56px; padding-top: 24px; border-top: 1px solid
 .legal p, .legal li { color: var(--muted); }
 .legal ul { padding-left: 1.2em; }
 
+@media (max-width: 1180px) { .float.f1 { left: -12px; } .float.f2 { right: -12px; } }
 @media (max-width: 960px) {
   .nav .links { display: none; }
   .hero .wrap, .truth, .feature, .final { grid-template-columns: 1fr; }

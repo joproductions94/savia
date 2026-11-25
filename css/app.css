@@ -321,3 +321,45 @@ dialog::backdrop { background: rgba(10, 16, 15, .5); }
   .card.flush { padding: 2px 20px; }
   .flow-row.sum { margin: 0 -20px; padding: 8px 20px; }
 }
+
+/* feuille de saisie : type, gros montant, dictée */
+.seg.kind label.k-exp:has(input:checked) { color: var(--danger); }
+.seg.kind label.k-inc:has(input:checked) { color: var(--income); }
+.amount-field { display: flex; align-items: baseline; gap: 10px; border-bottom: 2px solid var(--line); padding: 6px 2px 8px; transition: border-color .15s ease; }
+.amount-field:focus-within { border-color: var(--primary); }
+.amount-field .cur { font: 700 1rem var(--font-fig); color: var(--muted); }
+.amount-field input { flex: 1; min-width: 0; border: 0; background: none; font: 800 2.4rem/1.1 var(--font-fig); letter-spacing: -.02em; color: var(--ink); padding: 0; outline: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.btn.dictate { width: 100%; border-style: dashed; color: var(--primary); }
+.btn.dictate.rec { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+@media (prefers-reduced-motion: no-preference) { .btn.dictate.rec svg { animation: pulse 1s ease-in-out infinite; } @keyframes pulse { 50% { transform: scale(1.18); } } }
+.hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hero-actions .btn { min-height: 42px; }
+/* Apple Pay / Wallet */
+.steps-list { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; font-size: .88rem; color: var(--ink); }
+.copy-row { display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+.copy-row code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; background: var(--surface-2); border-radius: 10px; padding: 11px 12px; font: 500 .78rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); scrollbar-width: thin; }
+.copy-row .btn { flex: none; min-height: 42px; }
+/* cibles tactiles : liens d'action d'au moins 36 px de haut */
+button.link { min-height: 36px; padding: 6px 2px; }
+.brand { min-height: 40px; }
+/* feuille de dialogue : jamais plus large que l'écran, même sur 320 px */
+dialog { width: 100%; max-width: min(520px, 100%); box-sizing: border-box; }
+dialog > form, .dlg-body, .dlg-body > * { min-width: 0; max-width: 100%; }
+.dlg-body { overflow-x: hidden; }
+.field input[type="date"] { min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; }
+/* tablette en portrait : deux colonnes dès 720 px */
+@media (min-width: 720px) and (max-width: 959px) {
+  main { max-width: 920px; }
+  .dash { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
+/* téléphone en paysage : barres plus compactes pour garder de la place au contenu */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root { --nav-h: 50px; --quick-h: 56px; }
+  .tabs button { grid-auto-flow: column; gap: 8px; font-size: .8rem; }
+  .tabs button svg { width: 20px; height: 20px; }
+  .quick { padding-top: 6px; padding-bottom: 6px; }
+  .big { font-size: 2.1rem; }
+}
+.form { grid-template-columns: minmax(0, 1fr); }
+.amount-field input { width: 100%; }

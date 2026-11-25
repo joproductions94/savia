@@ -204,3 +204,26 @@ test('rythme du quotidien : cumul jour par jour et catégories (hors charges, vi
   assert.deepStrictEqual(s.byCat, [['courses', 100], ['loisirs', 25]]);
   assert.strictEqual(s.days, 31);
 });
+
+test('rentrées : reconnues dans les trois langues, ou forcées', () => {
+  const t = '2026-11-25';
+  for (const s of ['reçu 200 de Paul', 'vente vélo 150', 'Rückerstattung 80', 'Einnahme 50', 'rimborso 30', 'entrata 70', '+ 45 TWINT']) assert.ok(F.parseCommand(s, { today: t }).amount > 0, s);
+  assert.ok(F.parseCommand('migros 20', { today: t, kind: 'income' }).amount === 20);
+  assert.ok(F.parseCommand('remboursement 20', { today: t, kind: 'expense' }).amount === -20);
+});
+
+test('Apple Pay / Wallet : un paiement reçu par lien est ajouté une seule fois et confirmé par le relevé', () => {
+  const d = doc();
+  d.accounts = [{ id: 'n', name: 'Neon', kind: 'courant', balance: 100 }];
+  d.settings.defaultAccount = 'n';
+  const p = new URLSearchParams('amount=CHF%2012,50&merchant=Migros%20Renens&card=Neon&date=2026-11-24');
+  const item = F.parseIngest(p, { today: '2026-11-25' });
+  assert.deepStrictEqual([item.amount, item.cat, item.date, item.source], [-12.5, 'courses', '2026-11-24', 'wallet']);
+  const x = F.ingest(d, item);
+  assert.ok(x);
+  assert.strictEqual(F.ingest(d, F.parseIngest(p, { today: '2026-11-25' })), null, 'doublon ignoré');
+  assert.strictEqual(d.accounts[0].balance, 87.5);
+  assert.strictEqual(F.parseIngest({ amount: '' }).ok, false);
+  const rows = F.reconcile(d, 'n', [{ date: '2026-11-25', amount: -12.5, label: 'MIGROS RENENS' }]);
+  assert.strictEqual(rows[0].dup, 'probable');
+});

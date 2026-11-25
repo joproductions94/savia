@@ -2,6 +2,20 @@
 (function (root) {
   'use strict';
   const fr = {
+    'txd.dictate': 'Dicter', 'txd.listening': 'J’écoute…', 'txd.dictateHint': 'Dites par exemple « courses 45 Migros » ou « reçu 200 remboursement ».',
+    'tx.newExpense': 'Dépense', 'tx.newIncome': 'Rentrée',
+    'wallet.title': 'Apple Pay et Wallet', 'wallet.introLocal': 'Chaque paiement Apple Pay peut arriver tout seul dans Franko grâce à une automatisation de l’app Raccourcis (iOS 17 ou plus récent).',
+    'wallet.introCloud': 'Chaque paiement Apple Pay peut arriver tout seul dans Franko grâce à une automatisation de l’app Raccourcis (iOS 17 ou plus récent). Avec votre compte, il arrive même quand l’app est fermée.',
+    'wallet.s1': 'Ouvrez l’app Raccourcis › Automatisation › Nouvelle automatisation.', 'wallet.s2': 'Choisissez « Transaction », sélectionnez vos cartes, puis « Exécuter immédiatement ».',
+    'wallet.s3': 'Ajoutez l’action ci-dessous et remplacez les champs par les variables de la transaction (Montant, Commerçant, Carte).',
+    'wallet.s4l': 'Action « Ouvrir les URL » avec ce lien :', 'wallet.s5l': 'À chaque paiement, Franko s’ouvre un instant et ajoute la dépense, déjà classée.',
+    'wallet.s4c': 'Action « Obtenir le contenu de l’URL » : méthode POST vers l’adresse ci-dessous, en-tête « Authorization » = « Bearer » suivi de votre clé, corps JSON avec amount, merchant et card.',
+    'wallet.s5c': 'Les paiements arrivent même app fermée et apparaissent à la prochaine ouverture.',
+    'wallet.vAmount': 'Montant', 'wallet.vMerchant': 'Commerçant', 'wallet.vCard': 'Carte', 'wallet.copy': 'Copier', 'wallet.copied': 'Copié', 'wallet.selectCopy': 'Texte sélectionné : copiez-le',
+    'wallet.makeKey': 'Créer ma clé', 'wallet.keyNote': 'Votre clé n’est affichée qu’une fois. Gardez-la pour vous ; en créer une nouvelle désactive l’ancienne.', 'wallet.keyErr': 'Impossible de créer la clé pour le moment.',
+    'wallet.android': 'Android : avec MacroDroid ou Tasker, déclencheur « Notification » de Google Wallet ou de votre banque, puis action « Requête HTTP » ou « Ouvrir l’URL » avec la même adresse.',
+    'wallet.dedupe': 'Quand vous importez ensuite votre relevé bancaire, ces paiements sont reconnus comme déjà saisis : aucun doublon.',
+    'wallet.added': 'Apple Pay : {label} {amount}', 'wallet.addedN': '{n} paiements Apple Pay ajoutés', 'wallet.bad': 'Lien de paiement incomplet : montant manquant.',
     'pace.title': 'Rythme du mois', 'pace.ahead': 'Plus vite que prévu', 'pace.onTrack': 'Dans le rythme', 'pace.cum': 'Dépensé (cumul)', 'pace.ideal': 'Rythme régulier', 'pace.day': 'Ce jour :',
     'pace.aria': 'Dépenses du quotidien : {spent} sur {budget} disponibles', 'pace.note': '{spent} dépensés sur {budget} disponibles pour le quotidien · {left} jour(s) restant(s).',
     'cats.title': 'Où va l’argent du quotidien', 'cats.total': '{amount} ce mois', 'cats.rest': 'Autres catégories',
@@ -114,6 +128,20 @@
   };
 
   const de = {
+    'txd.dictate': 'Diktieren', 'txd.listening': 'Ich höre zu…', 'txd.dictateHint': 'Sagen Sie z. B. «Einkauf 45 Migros» oder «erhalten 200 Rückerstattung».',
+    'tx.newExpense': 'Ausgabe', 'tx.newIncome': 'Einnahme',
+    'wallet.title': 'Apple Pay und Wallet', 'wallet.introLocal': 'Jede Apple-Pay-Zahlung kann automatisch in Franko landen, dank einer Automation der App Kurzbefehle (ab iOS 17).',
+    'wallet.introCloud': 'Jede Apple-Pay-Zahlung kann automatisch in Franko landen, dank einer Automation der App Kurzbefehle (ab iOS 17). Mit Ihrem Konto kommt sie auch an, wenn die App geschlossen ist.',
+    'wallet.s1': 'Öffnen Sie Kurzbefehle › Automation › Neue Automation.', 'wallet.s2': 'Wählen Sie «Transaktion», Ihre Karten und dann «Sofort ausführen».',
+    'wallet.s3': 'Fügen Sie die Aktion unten hinzu und ersetzen Sie die Felder durch die Variablen der Transaktion (Betrag, Händler, Karte).',
+    'wallet.s4l': 'Aktion «URLs öffnen» mit diesem Link:', 'wallet.s5l': 'Bei jeder Zahlung öffnet sich Franko kurz und erfasst die Ausgabe, bereits eingeordnet.',
+    'wallet.s4c': 'Aktion «Inhalte von URL abrufen»: Methode POST an die Adresse unten, Header «Authorization» = «Bearer» gefolgt von Ihrem Schlüssel, JSON mit amount, merchant und card.',
+    'wallet.s5c': 'Zahlungen kommen auch bei geschlossener App an und erscheinen beim nächsten Öffnen.',
+    'wallet.vAmount': 'Betrag', 'wallet.vMerchant': 'Händler', 'wallet.vCard': 'Karte', 'wallet.copy': 'Kopieren', 'wallet.copied': 'Kopiert', 'wallet.selectCopy': 'Text markiert: bitte kopieren',
+    'wallet.makeKey': 'Schlüssel erstellen', 'wallet.keyNote': 'Der Schlüssel wird nur einmal angezeigt. Behalten Sie ihn für sich; ein neuer deaktiviert den alten.', 'wallet.keyErr': 'Schlüssel kann gerade nicht erstellt werden.',
+    'wallet.android': 'Android: mit MacroDroid oder Tasker, Auslöser «Benachrichtigung» von Google Wallet oder Ihrer Bank, dann Aktion «HTTP-Anfrage» oder «URL öffnen» mit derselben Adresse.',
+    'wallet.dedupe': 'Wenn Sie danach Ihren Kontoauszug importieren, werden diese Zahlungen als bereits erfasst erkannt: keine Doppelten.',
+    'wallet.added': 'Apple Pay: {label} {amount}', 'wallet.addedN': '{n} Apple-Pay-Zahlungen erfasst', 'wallet.bad': 'Zahlungslink unvollständig: Betrag fehlt.',
     'pace.title': 'Ausgabentempo', 'pace.ahead': 'Schneller als geplant', 'pace.onTrack': 'Im Tempo', 'pace.cum': 'Ausgegeben (kumuliert)', 'pace.ideal': 'Gleichmässiges Tempo', 'pace.day': 'An diesem Tag:',
     'pace.aria': 'Alltagsausgaben: {spent} von {budget} verfügbar', 'pace.note': '{spent} von {budget} für den Alltag ausgegeben · noch {left} Tag(e).',
     'cats.title': 'Wohin das Alltagsgeld geht', 'cats.total': '{amount} diesen Monat', 'cats.rest': 'Weitere Kategorien',
@@ -218,6 +246,20 @@
   };
 
   const it = {
+    'txd.dictate': 'Dettare', 'txd.listening': 'Ascolto…', 'txd.dictateHint': 'Dica per esempio «spesa 45 Migros» o «ricevuto 200 rimborso».',
+    'tx.newExpense': 'Spesa', 'tx.newIncome': 'Entrata',
+    'wallet.title': 'Apple Pay e Wallet', 'wallet.introLocal': 'Ogni pagamento Apple Pay può arrivare da solo in Franko grazie a un’automazione dell’app Comandi Rapidi (iOS 17 o successivo).',
+    'wallet.introCloud': 'Ogni pagamento Apple Pay può arrivare da solo in Franko grazie a un’automazione dell’app Comandi Rapidi (iOS 17 o successivo). Con il suo account arriva anche ad app chiusa.',
+    'wallet.s1': 'Apra Comandi Rapidi › Automazione › Nuova automazione.', 'wallet.s2': 'Scelga «Transazione», le sue carte, poi «Esegui immediatamente».',
+    'wallet.s3': 'Aggiunga l’azione qui sotto e sostituisca i campi con le variabili della transazione (Importo, Esercente, Carta).',
+    'wallet.s4l': 'Azione «Apri URL» con questo link:', 'wallet.s5l': 'A ogni pagamento Franko si apre un attimo e aggiunge la spesa, già classificata.',
+    'wallet.s4c': 'Azione «Ottieni contenuti dell’URL»: metodo POST verso l’indirizzo qui sotto, intestazione «Authorization» = «Bearer» seguito dalla sua chiave, corpo JSON con amount, merchant e card.',
+    'wallet.s5c': 'I pagamenti arrivano anche ad app chiusa e compaiono alla prossima apertura.',
+    'wallet.vAmount': 'Importo', 'wallet.vMerchant': 'Esercente', 'wallet.vCard': 'Carta', 'wallet.copy': 'Copia', 'wallet.copied': 'Copiato', 'wallet.selectCopy': 'Testo selezionato: lo copi',
+    'wallet.makeKey': 'Creare la chiave', 'wallet.keyNote': 'La chiave è mostrata una sola volta. La tenga per sé; crearne una nuova disattiva la precedente.', 'wallet.keyErr': 'Impossibile creare la chiave per ora.',
+    'wallet.android': 'Android: con MacroDroid o Tasker, attivatore «Notifica» di Google Wallet o della sua banca, poi azione «Richiesta HTTP» o «Apri URL» con lo stesso indirizzo.',
+    'wallet.dedupe': 'Quando poi importa l’estratto conto, questi pagamenti sono riconosciuti come già inseriti: nessun doppione.',
+    'wallet.added': 'Apple Pay: {label} {amount}', 'wallet.addedN': '{n} pagamenti Apple Pay aggiunti', 'wallet.bad': 'Link di pagamento incompleto: manca l’importo.',
     'pace.title': 'Ritmo del mese', 'pace.ahead': 'Più veloce del previsto', 'pace.onTrack': 'Nel ritmo', 'pace.cum': 'Speso (cumulato)', 'pace.ideal': 'Ritmo regolare', 'pace.day': 'Questo giorno:',
     'pace.aria': 'Spese del quotidiano: {spent} su {budget} disponibili', 'pace.note': '{spent} spesi su {budget} disponibili per il quotidiano · {left} giorno/i rimanente/i.',
     'cats.title': 'Dove vanno i soldi del quotidiano', 'cats.total': '{amount} questo mese', 'cats.rest': 'Altre categorie',

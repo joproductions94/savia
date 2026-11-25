@@ -139,6 +139,7 @@
         <p class="sub">${t('home.onlyPaid', { date: esc(ds(F.addDays(per.end, 1))) })}</p>
         ${f.pending >= 1 ? `<p class="bank-line"><span>${t('home.notPaid')} <b class="num">${fmt(f.pending)}</b></span><span>= ${t('home.afterAll')} <b class="num ${short ? 'neg' : ''}">${fmt(f.leftAfterAll)}</b>${!short && per.daysLeft > 0 ? ` · ${t('home.perDay', { amount: `<b class="num">${fmt(st.perDay)}</b>` })}` : ''}</span></p>` : ''}
         <div class="meter ${over ? 'over' : ''}" style="--c:var(--primary)" role="img" aria-label="${Math.round(used)} %"><i style="width:${used.toFixed(1)}%"></i></div>
+        <div class="hero-actions"><button class="btn" data-action="new-tx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>${t('tx.newExpense')}</button><button class="btn" data-action="new-income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${t('tx.newIncome')}</button></div>
         <dl class="stats">
           <div><dt>${t('home.paidOut')}</dt><dd class="num">${fmt(paidOut, { bare: true })}</dd></div>
           <div><dt>${t('home.spent')}</dt><dd class="num">${fmt(f.spentDaily, { bare: true })}</dd></div>
@@ -208,7 +209,8 @@
       </section>
       <section class="stack-v">
         <button class="btn primary block" data-action="import">${svg('revenu')}${t('tx.import')}</button>
-        <div class="row-btns"><button class="btn" data-action="new-tx">${t('tx.new')}</button><button class="btn" data-action="export-csv">${t('tx.export')}</button></div>
+        <div class="row-btns"><button class="btn" data-action="new-tx">${t('tx.newExpense')}</button><button class="btn" data-action="new-income">${t('tx.newIncome')}</button></div>
+        <button class="btn block" data-action="export-csv">${t('tx.export')}</button>
       </section>`;
     },
 
@@ -265,6 +267,7 @@
         <label class="field">${t('set.fundNow')}<input name="emergencyFund" inputmode="decimal" value="${esc(urg ? F.emergencyFund(d) : s.emergencyFund || '')}" ${urg ? 'disabled' : ''}></label>
         ${urg ? `<p class="hint">${t('set.fundAuto')}</p>` : ''}
       </section>
+      ${walletHtml()}
       ${accountHtml()}
       <section class="card form">
         <div class="grid2">
@@ -589,6 +592,32 @@
     });
   }
 
+  // ---------- Apple Pay / Wallet ----------
+  function walletHtml() {
+    const base = location.origin + location.pathname;
+    const link = `${base}?amount=[${t('wallet.vAmount')}]&merchant=[${t('wallet.vMerchant')}]&card=[${t('wallet.vCard')}]`;
+    const cloud = S.cloud && S.session;
+    const steps = (cloud ? ['wallet.s1', 'wallet.s2', 'wallet.s3', 'wallet.s4c', 'wallet.s5c'] : ['wallet.s1', 'wallet.s2', 'wallet.s3', 'wallet.s4l', 'wallet.s5l']).map((k) => `<li>${t(k)}</li>`).join('');
+    return `<section class="card form" id="walletCard">
+      <div class="hero-top"><h2>${t('wallet.title')}</h2><span class="pill beta">iPhone · Android</span></div>
+      <p class="hint">${t(cloud ? 'wallet.introCloud' : 'wallet.introLocal')}</p>
+      <ol class="steps-list">${steps}</ol>
+      ${cloud ? `<div class="copy-row"><code id="ingestUrl">${esc(S.ingestUrl)}</code><button class="btn" type="button" data-copy="ingestUrl">${t('wallet.copy')}</button></div>
+        <div class="copy-row"><code id="ingestKey">${esc(ui.ingestKey || '••••••••••••')}</code><button class="btn ${ui.ingestKey ? '' : 'primary'}" type="button" data-action="${ui.ingestKey ? '' : 'make-key'}" ${ui.ingestKey ? 'data-copy="ingestKey"' : ''}>${ui.ingestKey ? t('wallet.copy') : t('wallet.makeKey')}</button></div>
+        <p class="hint">${t('wallet.keyNote')}</p>`
+        : `<div class="copy-row"><code id="walletLink">${esc(link)}</code><button class="btn" type="button" data-copy="walletLink">${t('wallet.copy')}</button></div>`}
+      <p class="hint">${t('wallet.android')}</p>
+      <p class="hint">${t('wallet.dedupe')}</p>
+    </section>`;
+  }
+  document.addEventListener('click', async (ev) => {
+    const c = ev.target.closest('[data-copy]');
+    if (!c) return;
+    const el = document.getElementById(c.dataset.copy);
+    try { await navigator.clipboard.writeText(el.textContent); toast(t('wallet.copied')); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast(t('wallet.selectCopy')); }
+  });
+
   // ---------- compte et abonnement ----------
   function accountHtml() {
     const cfg = S.config, sess = S.session;
@@ -644,12 +673,13 @@
     const d = doc(), existing = x.id ? x : null;
     const isIncome = existing ? existing.amount > 0 : x.kind === 'income';
     const accOpts = `<option value="">${t('txd.noAccount')}</option>` + accounts().map((a) => `<option value="${esc(a.id)}" ${(existing ? existing.accountId : d.settings.defaultAccount) === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
-    openDialog(existing ? t('txd.edit') : t('txd.new'), `<div class="form">
-      <div class="seg"><label><input type="radio" name="kind" value="expense" ${!isIncome ? 'checked' : ''}>${t('txd.expense')}</label><label><input type="radio" name="kind" value="income" ${isIncome ? 'checked' : ''}>${t('txd.income')}</label></div>
-      <div class="grid2"><label class="field">${t('txd.amount')}<input name="amount" inputmode="decimal" value="${existing ? esc(Math.abs(existing.amount)) : ''}" autocomplete="off"></label>
-      <label class="field">${t('txd.date')}<input name="date" type="date" value="${esc(existing ? existing.date : F.today())}"></label></div>
+    openDialog(existing ? t('txd.edit') : t('txd.new'), `<div class="form" id="txForm">
+      <div class="seg kind"><label class="k-exp"><input type="radio" name="kind" value="expense" ${!isIncome ? 'checked' : ''}>${t('txd.expense')}</label><label class="k-inc"><input type="radio" name="kind" value="income" ${isIncome ? 'checked' : ''}>${t('txd.income')}</label></div>
+      <label class="amount-field"><span class="sr">${t('txd.amount')}</span><span class="cur">CHF</span><input name="amount" inputmode="decimal" placeholder="0.00" value="${existing ? esc(Math.abs(existing.amount)) : ''}" autocomplete="off" aria-label="${esc(t('txd.amount'))}"></label>
+      ${existing ? '' : `<button type="button" class="btn dictate" data-dictate><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg><span>${t('txd.dictate')}</span></button><p class="hint" id="dictHint">${t('txd.dictateHint')}</p>`}
       <label class="field">${t('txd.label')}<input name="label" value="${esc(existing ? existing.label : '')}" autocomplete="off"></label>
-      <div class="grid2"><label class="field">${t('txd.cat')}<select name="cat">${catOptions(existing ? existing.cat : 'autre')}</select></label>
+      <label class="field">${t('txd.date')}<input name="date" type="date" value="${esc(existing ? existing.date : F.today())}"></label>
+      <div class="grid2"><label class="field">${t('txd.cat')}<select name="cat">${catOptions(existing ? existing.cat : isIncome ? 'revenu' : 'autre')}</select></label>
       <label class="field">${t('txd.account')}<select name="accountId">${accOpts}</select></label></div>
       <label class="check"><input type="checkbox" name="excluded" ${existing && existing.excluded ? 'checked' : ''}>${t('txd.excluded')}</label>
       <label class="check"><input type="checkbox" name="transfer" ${existing && existing.transfer ? 'checked' : ''}>${t('txd.transfer')}</label>
@@ -673,6 +703,45 @@
       save(); toast(t('txd.saved'));
     });
   }
+
+  // Dans la feuille de saisie : la catégorie suit le libellé tant qu'on ne l'a pas choisie ; la dictée remplit tout.
+  document.addEventListener('input', (ev) => {
+    const f = ev.target.closest('#txForm');
+    if (!f) return;
+    if (ev.target.name === 'cat') { ev.target.dataset.chosen = '1'; return; }
+    if (ev.target.name === 'label' || ev.target.name === 'kind') {
+      const sel = f.querySelector('[name=cat]');
+      if (sel.dataset.chosen) return;
+      const income = f.querySelector('[name=kind]:checked').value === 'income';
+      sel.value = income ? 'revenu' : F.categorize(f.querySelector('[name=label]').value, doc().settings.learned);
+    }
+  });
+  document.addEventListener('change', (ev) => { if (ev.target.name === 'kind' && ev.target.closest('#txForm')) ev.target.dispatchEvent(new Event('input', { bubbles: true })); });
+  function fillFromSpeech(f, text) {
+    const kind = f.querySelector('[name=kind]:checked').value;
+    const r = F.parseCommand(text, { learned: doc().settings.learned });
+    if (!r.ok) { $('#dictHint').textContent = t('quick.err.no-amount') + ' « ' + text + ' »'; return; }
+    const income = r.amount > 0 || kind === 'income';
+    f.querySelector(`[name=kind][value=${income ? 'income' : 'expense'}]`).checked = true;
+    f.querySelector('[name=amount]').value = Math.abs(r.amount).toFixed(2);
+    f.querySelector('[name=label]').value = r.label;
+    f.querySelector('[name=date]').value = r.date;
+    const sel = f.querySelector('[name=cat]'); if (!sel.dataset.chosen) sel.value = income ? 'revenu' : r.cat;
+    $('#dictHint').textContent = '« ' + text + ' »';
+  }
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-dictate]');
+    if (!b) return;
+    const f = b.closest('#txForm'), SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { f.querySelector('[name=label]').focus(); $('#dictHint').textContent = t('quick.mic.tip'); return; }
+    const r = new SR(); r.lang = I.locale; r.interimResults = true;
+    b.classList.add('rec'); b.querySelector('span').textContent = t('txd.listening');
+    let last = '';
+    r.onresult = (e) => { last = [...e.results].map((x) => x[0].transcript).join(' ').trim(); $('#dictHint').textContent = '« ' + last + ' »'; };
+    r.onend = () => { b.classList.remove('rec'); b.querySelector('span').textContent = t('txd.dictate'); if (last) fillFromSpeech(f, last); };
+    r.onerror = () => { b.classList.remove('rec'); b.querySelector('span').textContent = t('txd.dictate'); $('#dictHint').textContent = t('quick.mic.tip'); };
+    try { r.start(); } catch (e) { b.classList.remove('rec'); }
+  });
 
   function splitDialog(x) {
     const d = doc(), total = Math.abs(x.amount), word = F.keyWord(x.bankLabel || x.label);
@@ -810,7 +879,7 @@
   $('#quick').addEventListener('submit', (ev) => {
     ev.preventDefault();
     const inp = $('#quickInput'), text = inp.value.trim();
-    if (!text) { toast(t('quick.err.empty')); return; }
+    if (!text) { txDialog({ kind: 'expense' }); return; }
     quickAdd(text, 'manual');
     inp.value = '';
   });
@@ -863,6 +932,8 @@
     tab: (el) => go(el.dataset.tab),
     'edit-tx': (el) => { const x = doc().tx.find((y) => y.id === el.dataset.id && !y.deleted); if (x) txDialog(x); },
     'new-tx': () => txDialog({ kind: 'expense' }),
+    'new-income': () => txDialog({ kind: 'income' }),
+    'make-key': async () => { try { ui.ingestKey = await S.createIngestKey(); render(); } catch (e) { toast(t('wallet.keyErr')); } },
     'new-fixed': () => fixedDialog(null),
     'edit-fixed': (el) => { const c = F.live(doc().fixed).find((x) => x.id === el.dataset.id); if (c) fixedDialog(c); },
     'new-planned': (el) => plannedDialog({ month: el.dataset.month }),
@@ -988,8 +1059,23 @@
   // ---------- démarrage ----------
   ui.lang = I.setLang(ui.lang || doc().settings.lang || navigator.language);
   setLocale();
-  S.on(() => render());
+  function takeLinkPayment() {
+    const q = new URLSearchParams(location.search);
+    if (!q.has('amount') && !q.has('montant')) return;
+    const item = F.parseIngest(q, { learned: doc().settings.learned });
+    try { history.replaceState(null, '', location.pathname); } catch (e) { /* adresse inchangée */ }
+    if (!item.ok) { toast(t('wallet.bad')); return; }
+    const x = F.ingest(doc(), item);
+    S.save();
+    if (x) { ui.tab = 'home'; toast(t('wallet.added', { label: x.label, amount: fmt(x.amount) }), [{ label: t('quick.edit'), fn: () => txDialog(x) }]); }
+  }
+  S.on(() => {
+    const got = S.takeIngested && S.takeIngested();
+    render();
+    if (got && got.length) toast(got.length === 1 ? t('wallet.added', { label: got[0].label, amount: fmt(got[0].amount) }) : t('wallet.addedN', { n: got.length }));
+  });
   S.init();
+  takeLinkPayment();
   render();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   window.App = { render, getDoc: doc, toast };

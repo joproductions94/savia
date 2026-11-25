@@ -17,7 +17,7 @@
   let rev = ls.get(REVKEY, 0);
   let status = cloud && session ? 'ok' : 'local';
   let plan = { tier: cfg.billing ? 'free' : 'beta', until: null };
-  let listeners = [], timer = null, running = false, again = false;
+  let listeners = [], timer = null, running = false, again = false, lastIngest = null;
 
   function normalize(d) {
     const e = F.emptyDoc();
@@ -95,6 +95,7 @@
         if (r.status !== 409) throw new Error('save ' + r.status); // 409 : quelqu'un a écrit entre-temps, on refusionne
       }
       ls.set(REVKEY, rev);
+      await drainInbox();
       await loadPlan();
       setStatus('ok');
     } catch (e) {
@@ -103,6 +104,31 @@
       running = false;
       if (again) { again = false; setTimeout(sync, 300); }
     }
+  }
+  // Paiements reçus par le serveur (Apple Pay, Wallet) : ajoutés au budget puis retirés de la boîte de réception.
+  async function drainInbox() {
+    const r = await api('/rest/v1/inbox?select=id,payload&order=received_at.asc&limit=200', { headers: { Accept: 'application/json' } });
+    if (!r.ok) return;
+    const rows = await r.json();
+    if (!rows.length) return;
+    const added = [];
+    for (const row of rows) { const x = F.ingest(doc, F.parseIngest(row.payload, { learned: doc.settings.learned })); if (x) added.push(x); }
+    if (added.length) {
+      doc.updatedAt = Date.now(); ls.set(KEY, doc);
+      const remote = await pull();
+      const w = await api('/rest/v1/rpc/save_budget_doc', { method: 'POST', body: JSON.stringify({ p_doc: remote ? F.merge(doc, normalize(remote.doc)) : doc, p_base_rev: remote ? remote.rev : 0 }) });
+      if (!w.ok) return; // on réessaiera : les identifiants évitent tout doublon
+      lastIngest = added;
+      emit();
+    }
+    await api('/rest/v1/inbox?id=in.(' + rows.map((x) => x.id).join(',') + ')', { method: 'DELETE' });
+  }
+  async function createIngestKey() {
+    if (!cloud || !session) throw new Error('auth');
+    await refresh();
+    const r = await api('/rest/v1/rpc/create_ingest_token', { method: 'POST', body: '{}' });
+    if (!r.ok) throw new Error('key');
+    return r.json();
   }
   async function loadPlan() {
     if (!cfg.billing) { plan = { tier: 'beta' }; return; }
@@ -128,7 +154,9 @@
   }
 
   root.Store = {
-    init, save, replace, sync, signIn, signOut, billing,
+    init, save, replace, sync, signIn, signOut, billing, createIngestKey,
+    takeIngested() { const x = lastIngest; lastIngest = null; return x; },
+    get ingestUrl() { return cloud ? cfg.supabaseUrl + '/functions/v1/ingest' : ''; },
     get doc() { return doc; }, get status() { return status; }, get session() { return session; }, get cloud() { return cloud; },
     get plan() { return plan; }, get config() { return cfg; },
     isPro: () => plan.tier === 'pro' || plan.tier === 'beta',

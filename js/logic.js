@@ -495,6 +495,8 @@
 
   // ---------- saisie rapide ----------
   const WORD_NUM = { un: 1, une: 1, deux: 2, trois: 3, ein: 1, eine: 1, zwei: 2, drei: 3, uno: 1, due: 2, tre: 3 };
+  // Mots qui signalent une rentrée d'argent (FR / DE / IT / EN / ES).
+  const INCOME_RE = /\b(salaire|paie|revenu|rentree|recu|recue|gagne|remboursement|rembourse|vente|vendu|allocation|lohn|gehalt|einnahme|erhalten|ruckerstattung|verkauf|verkauft|stipendio|salario|entrata|ricevuto|rimborso|vendita|venduto|salary|income|received|refund|sold|sueldo|ingreso|recibido|reembolso)\b/;
   // « couches 24.90 coop », « hier 45 Migros », « loyer 1'850 », « 18 francs 50 », « Zahnarzt 120 gestern ».
   function parseCommand(text, opts) {
     const o = opts || {};
@@ -515,11 +517,37 @@
     const a = amounts[amounts.length - 1];
     const amount = parseFloat(a[1].replace(/[’'\s]/g, '') + (a[2] ? '.' + a[2] : ''));
     let label = (s.slice(0, a.index) + ' ' + s.slice(a.index + a[0].length)).replace(/\b(chf|francs?|franken|franchi|fr\.)\b/gi, ' ').replace(/\s+/g, ' ').trim();
-    const income = /\b(salaire|lohn|stipendio|salary|remboursement|ruckerstattung|rimborso|refund|recu|erhalten|ricevuto|\+)\b/.test(fold(label)) || /^\+/.test(String(text).trim());
+    const income = o.kind === 'income' || (o.kind !== 'expense' && (INCOME_RE.test(fold(label)) || /^\+/.test(String(text).trim())));
     label = label.replace(/^\+\s*/, '');
     label = label.charAt(0).toUpperCase() + label.slice(1);
     const cat = income ? 'revenu' : categorize(label, o.learned);
     return { ok: amount > 0, amount: income ? amount : -amount, label: label || (income ? 'Revenu' : ''), cat, date, income, error: amount > 0 ? null : 'no-amount' };
+  }
+
+  // ---------- paiements reçus d'Apple Pay / Wallet (Raccourcis iOS, MacroDroid…) ----------
+  // Paramètres d'un lien ou d'un envoi : montant (« 12,50 », « CHF 12.50 », « -12.50 »), commerçant, carte, date, type.
+  function parseIngest(p, opts) {
+    const get = (k) => (p && (typeof p.get === 'function' ? p.get(k) : p[k])) || '';
+    const raw = String(get('amount') || get('montant') || get('betrag') || get('importo')).trim();
+    const a = parseAmount(raw);
+    if (!isFinite(a) || a === 0) return { ok: false, error: 'no-amount' };
+    const label = String(get('merchant') || get('label') || get('name') || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+    const kind = String(get('type') || get('kind')).toLowerCase();
+    const income = kind === 'income' || kind === 'revenu' || kind === 'credit';
+    const date = parseDate(String(get('date'))) || (opts && opts.today) || today();
+    const card = String(get('card') || '').trim().slice(0, 40);
+    const amount = round2(income ? Math.abs(a) : -Math.abs(a));
+    const cat = income ? 'revenu' : categorize(label, opts && opts.learned);
+    // identifiant stable : un même paiement envoyé deux fois n'est ajouté qu'une fois
+    const key = String(get('id') || [date, amount.toFixed(2), fold(label)].join('|'));
+    return { ok: true, amount, label: label || (income ? 'Revenu' : 'Apple Pay'), cat, date, card, key, source: 'wallet' };
+  }
+  function ingest(doc, item, now) {
+    if (!item || !item.ok) return null;
+    const dup = live(doc.tx).find((t) => t.ingestKey === item.key);
+    if (dup) return null;
+    const acc = live(doc.accounts).some((a) => a.id === (doc.settings && doc.settings.defaultAccount)) ? doc.settings.defaultAccount : null;
+    return addTx(doc, { date: item.date, amount: item.amount, label: item.label, cat: item.cat, accountId: acc, source: 'wallet', ingestKey: item.key, card: item.card || undefined }, now);
   }
 
   // ---------- relevés bancaires (CSV) ----------
@@ -701,7 +729,7 @@
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
     envOf, chargeEnv, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
     addTx, updateTx, deleteTx, matchFixed, relinkFixed, fixedStatus, plannedFor, dueDate, setCheck,
-    monthState, alerts, emergencyFund, history, nextMonth, dailySeries, splitTx, splitRuleFor, parseCommand,
+    monthState, alerts, emergencyFund, history, nextMonth, dailySeries, parseIngest, ingest, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,
   };
   if (typeof module === 'object' && module.exports) module.exports = F;
