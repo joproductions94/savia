@@ -187,11 +187,14 @@
     return { start, end, days: diffDays(end, start) + 1, daysLeft: diffDays(end, dateStr) + 1, elapsed: diffDays(dateStr, start) + 1, salaryTx: null };
   }
   // Salaires reçus : crédits d'au moins 60 % du salaire indiqué (1000 CHF sinon), espacés d'au moins 20 jours.
+  // 13e salaire, prime, gratification, remboursement : des rentrées en plus, jamais le salaire du mois.
+  const BONUS_RE = /(^| )(13e|13eme|13 ?salaire|treizieme|13 ?monatslohn|13 ?lohn|dreizehnte[rn]?|tredicesima|13esima|bonus|prime|gratification|gratifikation|pramie|praemie|premio|remboursement|ruckerstattung|rimborso|refund|retour d impot|steuerruckerstattung)( |$)/;
+  const isBonus = (x) => BONUS_RE.test(' ' + fold((x.label || '') + ' ' + (x.bankLabel || '')).replace(/[^a-z0-9]+/g, ' ') + ' ');
   function salaryDates(doc) {
     const sal = num(doc.settings && doc.settings.salary);
     const min = sal > 0 ? sal * 0.6 : 1000;
     const out = [];
-    for (const x of live(doc.tx).filter((t) => t.amount >= min && !t.transfer && !t.excluded).sort((a, b) => (a.date < b.date ? -1 : 1))) {
+    for (const x of live(doc.tx).filter((t) => t.amount >= min && !t.transfer && !t.excluded && !isBonus(t)).sort((a, b) => (a.date < b.date ? -1 : 1))) {
       if (!out.length || diffDays(x.date, out[out.length - 1].date) >= 20) out.push(x);
     }
     return out;
@@ -401,6 +404,11 @@
       fixedPending: actual ? fixedPending : 0,
     };
     flow.forDaily = round2(after - flow.invest.deducted - flow.savings.deducted);
+    // rentrée exceptionnelle : ce qui dépasse nettement le salaire habituel, et les primes / 13e reçus à part
+    const extraSalary = per.salaryTx && p.salary > 0 && per.salaryTx.amount > p.salary * 1.3 ? per.salaryTx.amount - p.salary : 0;
+    const bonusTx = live(doc.tx).filter((x) => x.date >= per.start && x.date <= per.end && x.amount > 0 && !x.transfer && !x.excluded && x !== per.salaryTx && isBonus(x) && x.amount >= 300);
+    flow.bonus = round2(extraSalary + bonusTx.reduce((t2, x) => t2 + x.amount, 0));
+    flow.bonusSaved = round2(live(doc.tx).filter((x) => x.bonusFor === per.start && x.amount < 0).reduce((t2, x) => t2 - x.amount, 0));
     flow.pending = round2(flow.fixedPending + flow.invest.pending + flow.savings.pending);
     flow.dailyBudget = round2(flow.forDaily - flow.pending);
     flow.left = round2(flow.forDaily - spent.daily); // disponible maintenant
@@ -427,12 +435,68 @@
     for (const a of live(doc.accounts)) if (num(a.balance) < 0) out.push({ level: 'danger', id: 'overdraft', name: a.name, amount: a.balance });
     const big = live(doc.tx).filter((x) => x.date >= per.start && x.date <= per.end && x.amount < 0 && !x.transfer && !x.excluded && !x.fixedId && (x.env || envOf(x.cat)) === 'daily' && -x.amount >= Math.max(150, p.env.daily * 0.15));
     if (big.length) out.push({ level: 'info', id: 'big', count: big.length, names: big.slice(0, 2).map((x) => x.label) });
+    for (const l of limitsState(doc, todayStr)) {
+      if (l.level === 'over') out.push({ level: 'danger', id: 'limit-over', cat: l.cat, amount: -l.left, limit: l.limit });
+      else if (l.level === 'near') out.push({ level: 'warn', id: 'limit-near', cat: l.cat, amount: l.left, limit: l.limit });
+    }
     return out;
   }
 
   function emergencyFund(doc) {
     const acc = live(doc.accounts).filter((a) => a.kind === 'urgence');
     return acc.length ? round2(acc.reduce((t, a) => t + num(a.balance), 0)) : num(doc.settings && doc.settings.emergencyFund);
+  }
+
+  // ---------- plafonds par catégorie ----------
+  // settings.limits = { courses: 800, sorties: 250 } : plafond mensuel des dépenses du quotidien.
+  function limitsState(doc, todayStr) {
+    const st = monthState(doc, todayStr), per = st.period;
+    const lim = (doc.settings && doc.settings.limits) || {};
+    const by = Object.fromEntries(dailySeries(doc, per, todayStr).byCat);
+    const pace = per.days > 0 ? Math.min(1, per.elapsed / per.days) : 1;
+    return Object.entries(lim).filter(([, v]) => num(v) > 0).map(([cat, v]) => {
+      const limit = num(v), spent = round2(by[cat] || 0);
+      const ratio = limit > 0 ? spent / limit : 0;
+      const level = spent > limit ? 'over' : ratio >= 0.85 ? 'near' : ratio > pace + 0.15 && per.elapsed >= 5 ? 'fast' : 'ok';
+      return { cat, limit, spent, left: round2(limit - spent), ratio: round2(ratio), level, perDay: per.daysLeft > 0 ? Math.max(0, r05((limit - spent) / per.daysLeft)) : 0 };
+    }).sort((a, b) => b.ratio - a.ratio);
+  }
+
+  // ---------- objectifs d'épargne ----------
+  // goal = { id, label, target, month: 'AAAA-MM' } ; l'argent mis de côté = mouvements reliés (goalId).
+  function goalsState(doc, todayStr) {
+    const t = todayStr || today();
+    const cur = salaryMonth(periodFor(doc, t));
+    return live(doc.goals).filter((g) => num(g.target) > 0).map((g) => {
+      const saved = round2(live(doc.tx).filter((x) => x.goalId === g.id && !x.excluded).reduce((s2, x) => s2 - x.amount, 0));
+      const left = round2(Math.max(0, num(g.target) - saved));
+      const monthsLeft = g.month ? Math.max(1, monthsFrom(cur, g.month) + 1) : 12;
+      const thisMonth = round2(live(doc.tx).filter((x) => x.goalId === g.id && x.date.slice(0, 7) >= cur && x.amount < 0).reduce((s2, x) => s2 - x.amount, 0));
+      const perMonth = left > 0 ? r05(left / monthsLeft) : 0;
+      return { goal: g, saved, left, monthsLeft, perMonth, thisMonth, done: left <= 0, late: !!g.month && g.month < cur && left > 0, pct: round2(Math.min(1, saved / num(g.target))) };
+    }).sort((a, b) => (a.done - b.done) || String(a.goal.month || '9999').localeCompare(String(b.goal.month || '9999')));
+  }
+
+  // ---------- bilan sur douze mois ----------
+  function yearReview(doc, todayStr) {
+    let h = history(doc, 13, todayStr).filter((m) => m.offset > 0).slice(-12); // mois terminés seulement
+    // on commence au premier mois où un revenu est noté : avant, l'app n'était pas encore utilisée
+    const first = h.findIndex((m) => m.income > 0);
+    h = first < 0 ? [] : h.slice(first);
+    if (!h.length) return null;
+    const sum = (k) => round2(h.reduce((t2, m) => t2 + m[k], 0));
+    const income = sum('income'), fixed = sum('fixed'), daily = sum('daily'), savings = sum('savings'), invest = sum('invest');
+    const kept = round2(income - fixed - daily);
+    const cats = {};
+    for (const m of h) for (const [c, v] of dailySeries(doc, periodAt(doc, m.offset, todayStr), m.end).byCat) cats[c] = round2((cats[c] || 0) + v);
+    const months = h.length;
+    return {
+      months, income, fixed, daily, savings, invest, kept,
+      rate: income > 0 ? Math.round((kept / income) * 1000) / 10 : 0,
+      perMonth: { income: round2(income / months), spent: round2((fixed + daily) / months), kept: round2(kept / months) },
+      cats: Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([cat, v]) => ({ cat, total: v, perMonth: round2(v / months) })),
+      worst: h.reduce((w, m) => (m.net < w.net ? m : w), h[0]), best: h.reduce((w, m) => (m.net > w.net ? m : w), h[0]),
+    };
   }
 
   // ---------- 3e pilier A ----------
@@ -804,7 +868,7 @@
     for (const y of b || []) map.set(y.id, map.has(y.id) ? newer(map.get(y.id), y) : y);
     return [...map.values()];
   }
-  const LISTS = ['accounts', 'fixed', 'checks', 'planned', 'tx'];
+  const LISTS = ['accounts', 'fixed', 'checks', 'planned', 'goals', 'tx'];
   function merge(local, remote) {
     if (!remote || !remote.settings) return local;
     if (!local || !local.settings) return remote;
@@ -821,7 +885,7 @@
     return {
       v: 2,
       settings: { salary: 0, salaries: 12, payday: 25, periodMode: 'salary', preset: 'famille', split: { ...PRESETS.famille }, emergencyMonths: 6, emergencyFund: 0, canton: 'FR', learned: {}, excludedWords: {}, splitRules: {}, updatedAt: 0 },
-      accounts: [], fixed: [], checks: [], planned: [], tx: [], updatedAt: 0,
+      accounts: [], fixed: [], checks: [], planned: [], goals: [], tx: [], updatedAt: 0,
     };
   }
 
@@ -836,7 +900,7 @@
   const F = {
     CATS, CAT_BY_ID, ENVS, PRESETS,
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
-    envOf, chargeEnv, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
+    envOf, chargeEnv, isBonus, limitsState, goalsState, yearReview, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
     addTx, updateTx, deleteTx, matchFixed, relinkFixed, fixedStatus, plannedFor, dueDate, setCheck,
     monthState, alerts, emergencyFund, history, nextMonth, dailySeries, parseIngest, ingest, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,

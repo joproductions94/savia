@@ -337,3 +337,80 @@ test('abonnements : des courses régulières ne sont pas un abonnement', () => {
   for (const m of ['2026-09', '2026-10', '2026-11']) F.addTx(d, { date: m + '-05', amount: -140, label: 'Migros', cat: 'courses' }, 1);
   assert.deepEqual(F.subscriptions(d, '2026-11-26'), []);
 });
+
+// ---------- 13e salaire, plafonds, objectifs, bilan ----------
+test('un 13e salaire reçu à part ne commence pas un nouveau mois', () => {
+  const d = baseDoc();
+  F.addTx(d, { date: '2026-11-25', amount: 6000, label: 'Salaire', cat: 'revenu' }, 1);
+  F.addTx(d, { date: '2026-12-15', amount: 6000, label: '13e salaire', cat: 'revenu' }, 1);
+  F.addTx(d, { date: '2026-12-24', amount: 6000, label: 'Salaire', cat: 'revenu' }, 1);
+  assert.deepEqual(F.salaryDates(d).map((x) => x.date), ['2026-11-25', '2026-12-24']);
+  const st = F.monthState(d, '2026-12-16');
+  assert.equal(st.period.start, '2026-11-25');
+  assert.equal(st.flow.bonus, 6000);
+});
+
+test('salaire de novembre avec le 13e inclus : la part en plus est repérée', () => {
+  const d = baseDoc();
+  F.addTx(d, { date: '2026-11-25', amount: 12000, label: 'Salaire', cat: 'revenu' }, 1);
+  const st = F.monthState(d, '2026-11-26');
+  assert.equal(st.flow.bonus, 6000);
+  F.addTx(d, { date: '2026-11-26', amount: -4000, label: '13e mis de côté', cat: 'epargne', bonusFor: st.period.start }, 1);
+  assert.equal(F.monthState(d, '2026-11-26').flow.bonusSaved, 4000);
+});
+
+test('plafond par catégorie : presque atteint puis dépassé, avec alertes', () => {
+  const d = baseDoc();
+  d.settings.limits = { courses: 500, sorties: 0 };
+  F.addTx(d, { date: '2026-11-26', amount: -440, label: 'Migros', cat: 'courses' }, 1);
+  let l = F.limitsState(d, '2026-11-27');
+  assert.equal(l.length, 1); assert.equal(l[0].level, 'near'); assert.equal(l[0].left, 60);
+  assert.ok(F.alerts(d, '2026-11-27').some((a) => a.id === 'limit-near' && a.cat === 'courses'));
+  F.addTx(d, { date: '2026-11-27', amount: -100, label: 'Coop', cat: 'courses' }, 1);
+  l = F.limitsState(d, '2026-11-27');
+  assert.equal(l[0].level, 'over');
+  assert.ok(F.alerts(d, '2026-11-27').some((a) => a.id === 'limit-over' && a.amount === 40));
+});
+
+test('objectif d’épargne : versé, reste, montant par mois', () => {
+  const d = baseDoc();
+  d.goals = [{ id: 'g1', label: 'Vacances', target: 3000, month: '2027-06', updatedAt: 1 }];
+  F.addTx(d, { date: '2026-11-26', amount: -600, label: 'Vacances', cat: 'epargne', goalId: 'g1' }, 1);
+  const g = F.goalsState(d, '2026-11-27')[0];
+  assert.equal(g.saved, 600); assert.equal(g.left, 2400);
+  assert.equal(g.monthsLeft, 8); // novembre à juin
+  assert.equal(g.perMonth, 300);
+  // l'épargne vers l'objectif compte comme épargne du mois
+  assert.equal(F.monthState(d, '2026-11-27').flow.savings.deducted, 600);
+});
+
+test('objectifs : synchronisés entre appareils', () => {
+  const a = baseDoc(), b = baseDoc();
+  a.goals = [{ id: 'g1', label: 'Vacances', target: 3000, updatedAt: 5 }];
+  b.goals = [{ id: 'g1', label: 'Vacances Italie', target: 3500, updatedAt: 9 }, { id: 'g2', label: 'Voiture', target: 8000, updatedAt: 2 }];
+  const m = F.merge(a, b);
+  assert.deepEqual(m.goals.map((g) => g.label).sort(), ['Vacances Italie', 'Voiture']);
+});
+
+test('bilan sur douze mois : taux d’épargne des mois terminés', () => {
+  const d = baseDoc();
+  for (const m of ['2026-08', '2026-09', '2026-10']) {
+    F.addTx(d, { date: m + '-25', amount: 6000, label: 'Salaire', cat: 'revenu' }, 1);
+    F.addTx(d, { date: m + '-26', amount: -1800, label: 'Loyer', cat: 'logement', fixedId: 'loyer' }, 1);
+    F.addTx(d, { date: m + '-28', amount: -2700, label: 'Migros', cat: 'courses' }, 1);
+  }
+  F.addTx(d, { date: '2026-11-25', amount: 6000, label: 'Salaire', cat: 'revenu' }, 1);
+  const r = F.yearReview(d, '2026-11-27');
+  assert.equal(r.months, 3);
+  assert.equal(r.income, 18000); assert.equal(r.kept, 4500); assert.equal(r.rate, 25);
+  assert.equal(r.cats[0].cat, 'courses'); assert.equal(r.cats[0].perMonth, 2700);
+});
+
+test('bilan : les mois d’avant le premier revenu ne comptent pas', () => {
+  const d = baseDoc();
+  F.addTx(d, { date: '2026-03-15', amount: -1500, label: 'VIAC 3a', cat: 'invest' }, 1);
+  for (const m of ['2026-09', '2026-10']) F.addTx(d, { date: m + '-25', amount: 6000, label: 'Salaire', cat: 'revenu' }, 1);
+  F.addTx(d, { date: '2026-11-25', amount: 6000, label: 'Salaire', cat: 'revenu' }, 1);
+  const r = F.yearReview(d, '2026-11-27');
+  assert.equal(r.months, 2); assert.equal(r.perMonth.income, 6000);
+});

@@ -161,6 +161,7 @@
           <div><dt>${t('home.pending')}</dt><dd class="num">${fmt(f.pending, { bare: true })}</dd></div>
         </dl>
       </section>
+      ${bonusHtml(st)}
       ${al.length ? `<section><div class="section-head"><h2>${t('home.watch')}</h2></div><div class="card notes">${al.map((a) => `<div class="note ${a.level}">${esc(alertText(a))}</div>`).join('')}</div></section>` : ''}
       ${paceHtml(st)}
       ${calcHtml(st)}
@@ -226,7 +227,8 @@
         <button class="btn primary block" data-action="import">${svg('revenu')}${t('tx.import')}</button>
         <div class="row-btns"><button class="btn" data-action="new-tx">${t('tx.newExpense')}</button><button class="btn" data-action="new-income">${t('tx.newIncome')}</button></div>
         <button class="btn block" data-action="export-csv">${t('tx.export')}</button>
-      </section>`;
+      </section>
+      ${reviewHtml()}`;
     },
 
     plan(st) {
@@ -235,6 +237,7 @@
       const charges = F.live(d.fixed).filter((c) => +c.amount > 0).sort((a, b) => b.amount - a.amount);
       const total = charges.reduce((s, c) => s + F.monthlyOf(c), 0);
       return `${nextMonthHtml(st)}
+      ${goalsHtml()}
       ${yearlyHtml(st)}
       ${pillarHtml()}
       ${savingsHtml(st)}
@@ -305,6 +308,8 @@
   function alertText(a) {
     if (a.text) return a.text;
     const p = { ...a };
+    if (a.cat) p.cat = catLabel(a.cat);
+    if (a.limit != null) p.limit = fmt(a.limit);
     if (a.amount != null) p.amount = fmt(a.amount);
     if (a.perDay != null) p.perDay = fmt(a.perDay);
     if (a.names) p.names = a.names.join(', ');
@@ -402,14 +407,156 @@
   // Où va l'argent du quotidien : catégories du mois.
   function catHtml(st) {
     const s = F.dailySeries(doc(), st.period);
-    if (!s.byCat.length) return '';
-    const total = s.byCat.reduce((a, c) => a + c[1], 0);
-    const top = s.byCat.slice(0, 5), rest = s.byCat.slice(5).reduce((a, c) => a + c[1], 0);
-    const rows = top.concat(rest > 0 ? [['__rest', rest]] : []);
-    const max = rows[0][1];
+    const limits = Object.fromEntries(F.limitsState(doc()).map((l) => [l.cat, l]));
+    const seen = new Set(s.byCat.map((c) => c[0]));
+    const byCat = s.byCat.concat(Object.keys(limits).filter((c) => !seen.has(c)).map((c) => [c, 0]));
+    if (!byCat.length) return '';
+    const total = byCat.reduce((a, c) => a + c[1], 0) || 1;
+    const keep = byCat.filter((c, i) => i < 5 || limits[c[0]]);
+    const rest = byCat.filter((c) => !keep.includes(c)).reduce((a, c) => a + c[1], 0);
+    const rows = keep.concat(rest > 0 ? [['__rest', rest]] : []);
+    const max = Math.max(...rows.map((r) => r[1]), 1);
+    const line = ([c, v]) => {
+      const l = limits[c];
+      const bar = l ? `<span class="meter thin limit ${l.level}" style="--c:${l.level === 'over' ? 'var(--danger)' : l.level === 'near' || l.level === 'fast' ? 'var(--warn)' : 'var(--c-daily)'}"><i style="width:${Math.min(100, l.ratio * 100).toFixed(1)}%"></i></span>` : `<span class="meter thin" data-mk="cat-${esc(c)}" style="--c:var(--c-daily)"><i style="width:${pct(v, max).toFixed(1)}%"></i></span>`;
+      const label = esc(c === '__rest' ? t('cats.rest') : catLabel(c));
+      const right = l ? `<span class="cat-pct num ${l.level === 'over' ? 'neg' : ''}">${l.left >= 0 ? t('limit.left', { amount: fmt(l.left, { bare: true }) }) : t('limit.over', { amount: fmt(-l.left, { bare: true }) })}</span>` : `<span class="cat-pct num">${Math.round((v / total) * 100)} %</span>`;
+      const inner = `${tile(c === '__rest' ? 'autre' : c, 'daily')}<span class="cat-main"><span class="cat-top"><span>${label}</span><span class="num">${fmt(v)}${l ? `<small class="muted"> / ${fmt(l.limit, { bare: true })}</small>` : ''}</span></span>${bar}</span>${right}`;
+      return c === '__rest' ? `<li>${inner}</li>` : `<li><button class="cat-btn" data-action="limit" data-cat="${esc(c)}" aria-label="${esc(t('limit.set', { cat: catLabel(c) }))}">${inner}</button></li>`;
+    };
     return `<section>
-      <div class="section-head"><h2>${t('cats.title')}</h2><span class="sub">${t('cats.total', { amount: fmt(total) })}</span></div>
-      <div class="card"><ul class="cats">${rows.map(([c, v]) => `<li>${tile(c === '__rest' ? 'autre' : c, 'daily')}<span class="cat-main"><span class="cat-top"><span>${esc(c === '__rest' ? t('cats.rest') : catLabel(c))}</span><span class="num">${fmt(v)}</span></span><span class="meter thin" data-mk="cat-${esc(c)}" style="--c:var(--c-daily)"><i style="width:${pct(v, max).toFixed(1)}%"></i></span></span><span class="cat-pct num">${Math.round((v / total) * 100)} %</span></li>`).join('')}</ul></div>
+      <div class="section-head"><h2>${t('cats.title')}</h2><span class="sub">${t('cats.total', { amount: fmt(s.byCat.reduce((a, c) => a + c[1], 0)) })}</span></div>
+      <div class="card"><ul class="cats">${rows.map(line).join('')}</ul><p class="hint" style="margin:8px 0 0">${t('limit.hint')}</p></div>
+    </section>`;
+  }
+  // moyenne des trois derniers mois terminés pour une catégorie du quotidien
+  function catAverage(cat) {
+    const vals = [];
+    for (let o = 1; o <= 3; o++) { const per = F.periodAt(doc(), o); const v = F.dailySeries(doc(), per, per.end).byCat.find((x) => x[0] === cat); if (F.live(doc().tx).some((x) => x.date >= per.start && x.date <= per.end)) vals.push(v ? v[1] : 0); }
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  }
+  function limitDialog(cat) {
+    const cur = ((doc().settings.limits || {})[cat]) || '';
+    const avg = catAverage(cat);
+    openDialog(t('limit.title', { cat: catLabel(cat) }), `<div class="form">
+      <label class="field">${t('limit.amount')}<input name="limit" inputmode="decimal" value="${esc(cur)}" placeholder="${avg ? esc(Math.round(avg)) : '0'}" autocomplete="off"></label>
+      <p class="hint">${avg ? t('limit.avg', { amount: fmt(avg) }) + ' ' : ''}${t('limit.dialogHint')}</p></div>`,
+    `${cur ? `<button class="btn danger" value="delete">${t('limit.remove')}</button>` : ''}<button class="btn primary" value="save">${t('dlg.save')}</button>`,
+    (action, fd) => {
+      const lim = { ...(doc().settings.limits || {}) };
+      const v = F.parseAmount(fd.get('limit'));
+      if (action === 'delete' || !(v > 0)) delete lim[cat]; else lim[cat] = Math.round(v * 100) / 100;
+      setting({ limits: lim });
+    });
+  }
+
+  // 13e salaire, prime : proposer d'en mettre une part de côté avant qu'elle ne fonde dans le quotidien
+  function bonusPlan(st) {
+    const d = doc();
+    const r = T.estimate(taxInput(taxCfg()));
+    const taxGap = Math.max(0, Math.round(r.total - taxCharges().reduce((s2, c) => s2 + F.monthlyOf(c), 0) * 12));
+    const cur = st.month;
+    const yearlyGap = F.live(d.fixed).filter((c) => F.isYearly(c) && F.chargeEnv(c) === 'fixed').reduce((s2, c) => {
+      const due = cur.slice(0, 4) + '-' + String(c.dueMonth).padStart(2, '0');
+      const target = due >= cur ? due : (+cur.slice(0, 4) + 1) + '-' + String(c.dueMonth).padStart(2, '0');
+      return s2 + Math.max(0, (+c.amount || 0) - F.yearlyCovered(c, target));
+    }, 0);
+    const fundGap = Math.max(0, st.plan.emergency.target - st.plan.emergency.fund);
+    const lines = [];
+    // jamais tout : une part reste libre, sinon le conseil n'est pas suivi
+    let left = Math.round(st.flow.bonus * 0.8);
+    const take = (key, need) => { const v = Math.round(Math.min(left, need)); if (v >= 20) { lines.push([key, v]); left -= v; } };
+    take('tax', taxGap); take('yearly', yearlyGap); take('fund', fundGap);
+    if (!lines.length) take('save', st.flow.bonus / 2);
+    const total = lines.reduce((s2, l) => s2 + l[1], 0);
+    return { lines, total, free: Math.round(st.flow.bonus - total) };
+  }
+  function bonusHtml(st) {
+    const f = st.flow;
+    if (!(f.bonus >= 300)) return '';
+    const b = bonusPlan(st);
+    const done = f.bonusSaved >= b.total - 1;
+    return `<section class="card bonus">
+      <div class="hero-top"><span class="eyebrow">${t('bonus.eyebrow')}</span><span class="pill ${done ? 'ok' : 'warn'}">${done ? t('bonus.done') : t('bonus.todo')}</span></div>
+      <h2>${t('bonus.title', { amount: fmt(f.bonus) })}</h2>
+      <p class="small muted">${t('bonus.text')}</p>
+      <div class="flow">${b.lines.map(([k, v]) => row(k === 'tax' || k === 'yearly' ? 'fixed' : 'savings', t('bonus.' + k), fmt(v))).join('')}${row('', t('bonus.free'), fmt(b.free), '', 'sum')}</div>
+      ${done ? `<p class="small" style="margin:8px 0 0">${t('bonus.saved', { amount: fmt(f.bonusSaved) })}</p>` : `<button class="btn primary block" data-action="bonus-save" data-amount="${b.total - Math.min(b.total, f.bonusSaved)}">${t('bonus.cta', { amount: fmt(b.total - Math.min(b.total, f.bonusSaved)) })}</button>`}
+    </section>`;
+  }
+
+  // ---------- objectifs d'épargne ----------
+  function goalsHtml() {
+    const gs = F.goalsState(doc());
+    const need = gs.filter((g) => !g.done).reduce((s2, g) => s2 + g.perMonth, 0);
+    return `<section>
+      <div class="section-head"><h2>${t('goal.title')}</h2><button class="link" data-action="new-goal">${t('fixed.add')}</button></div>
+      <div class="card">
+        ${gs.length ? `<p class="small muted" style="margin:0 0 6px">${t('goal.need', { amount: `<b class="num" style="color:var(--ink)">${fmt(need)}</b>` })}</p><ul class="list wrapmeta">${gs.map((g) => `<li>
+          <button class="row" data-action="edit-goal" data-id="${esc(g.goal.id)}">${tile('epargne', 'savings')}<span class="main"><span class="title">${esc(g.goal.label)}</span>
+          <span class="meta"><b class="num">${fmt(g.saved)}</b> / ${fmt(g.goal.target)}${g.goal.month ? ' · ' + esc(mLong.format(asDate(g.goal.month))) : ''} · ${g.done ? t('goal.reached') : g.late ? t('goal.late', { amount: fmt(g.left) }) : t('goal.perMonth', { amount: fmt(g.perMonth) })}</span>
+          <span class="meter thin" style="--c:var(--savings)"><i style="width:${(g.pct * 100).toFixed(1)}%"></i></span></span></button>
+          <button class="state" data-action="goal-add" data-id="${esc(g.goal.id)}"><span>${t('goal.add')}</span></button></li>`).join('')}</ul>`
+        : `<p class="small muted" style="margin:0 0 10px">${t('goal.empty')}</p><div class="chips wrap">${t('goal.items').split('|').map((x) => `<button class="chip" data-action="new-goal" data-label="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>`}
+      </div>
+    </section>`;
+  }
+  function goalDialog(g) {
+    const d = doc(), isNew = !g.id;
+    const cur = F.monthState(d).month;
+    openDialog(isNew ? t('goal.new') : t('goal.edit'), `<div class="form">
+      <label class="field">${t('goal.label')}<input name="label" value="${esc(g.label || '')}" placeholder="${esc(t('goal.labelPh'))}" autocomplete="off"></label>
+      <div class="grid2"><label class="field">${t('goal.target')}<input name="target" inputmode="decimal" value="${esc(g.target || '')}" placeholder="3000" autocomplete="off"></label>
+      <label class="field">${t('goal.month')}<input name="month" type="month" min="${esc(cur)}" value="${esc(g.month || F.addMonths(cur + '-01', 6).slice(0, 7))}"></label></div>
+      <p class="hint">${t('goal.hint')}</p></div>`,
+    `${isNew ? '' : `<button class="btn danger" value="delete">${t('dlg.delete')}</button>`}<button class="btn primary" value="save">${t('dlg.save')}</button>`,
+    (action, fd) => {
+      const now = Date.now();
+      if (action === 'delete') { Object.assign(g, { deleted: true, updatedAt: now }); save(); toast(t('goal.deleted')); return; }
+      const label = String(fd.get('label') || '').trim(), target = F.parseAmount(fd.get('target'));
+      if (!label || !(target > 0)) { toast(t('fixedd.err')); return true; }
+      const data = { label, target, month: fd.get('month') || null, updatedAt: now };
+      d.goals = d.goals || [];
+      if (isNew) d.goals.push({ id: F.uid(), ...data }); else Object.assign(g, data);
+      save(); toast(t('goal.saved', { label }));
+    });
+  }
+  function goalAddDialog(g) {
+    const st = F.goalsState(doc()).find((x) => x.goal.id === g.id);
+    openDialog(g.label, `<div class="form">
+      <div class="seg kind"><label class="k-inc"><input type="radio" name="dir" value="in" checked>${t('goal.put')}</label><label class="k-exp"><input type="radio" name="dir" value="out">${t('goal.take')}</label></div>
+      <label class="amount-field"><span class="sr">${t('txd.amount')}</span><span class="cur">CHF</span><input name="amount" inputmode="decimal" placeholder="0.00" value="${st && st.perMonth ? esc(st.perMonth.toFixed(2)) : ''}" autocomplete="off" aria-label="${esc(t('txd.amount'))}"></label>
+      <p class="hint">${t('goal.addHint')}</p></div>`,
+    `<button class="btn primary" value="save">${t('dlg.save')}</button>`,
+    (action, fd) => {
+      const amt = Math.abs(F.parseAmount(fd.get('amount')));
+      if (!(amt > 0)) { toast(t('txd.amountErr')); return true; }
+      const out = fd.get('dir') === 'out';
+      // un retrait revient sur le compte : ce n'est pas un revenu, donc noté comme virement
+      F.addTx(doc(), { date: F.today(), amount: out ? amt : -amt, label: g.label, cat: 'epargne', env: 'savings', goalId: g.id, transfer: out, accountId: doc().settings.defaultAccount || null, source: 'manual' });
+      save(); toast(t(out ? 'goal.taken' : 'goal.put2', { amount: fmt(amt), label: g.label }));
+    });
+  }
+
+  // ---------- bilan sur douze mois ----------
+  function reviewHtml() {
+    const r = F.yearReview(doc());
+    if (!r) return '';
+    return `<section>
+      <div class="section-head"><h2>${t('review.title')}</h2><span class="sub">${t('review.sub', { n: r.months })}</span></div>
+      <div class="card review">
+        <div class="hero-top"><span class="eyebrow">${t('review.rate')}</span><span class="pill ${r.rate >= 10 ? 'ok' : r.rate >= 0 ? 'warn' : 'danger'}">${r.rate >= 20 ? t('review.good') : r.rate >= 10 ? t('review.ok') : t('review.low')}</span></div>
+        <div class="big ${r.rate < 0 ? 'neg' : ''}"><span class="num">${r.rate.toLocaleString(I.locale)}</span><span class="cur">%</span></div>
+        <p class="sub">${t('review.rateText', { kept: fmt(r.perMonth.kept), income: fmt(r.perMonth.income) })}</p>
+        <div class="flow">
+          ${row('income', t('review.income'), fmt(r.income), t('review.perMonth', { amount: fmt(r.perMonth.income) }))}
+          ${row('fixed', t('review.fixed'), fmt(-r.fixed))}
+          ${row('daily', t('review.daily'), fmt(-r.daily))}
+          ${row('savings', t('review.kept'), fmt(r.kept), t('review.keptNote', { saved: fmt(r.savings + r.invest) }), 'sum')}
+        </div>
+        ${r.cats.length ? `<div class="group-label">${t('review.cats')}</div><ul class="cats">${r.cats.map((c) => `<li>${tile(c.cat, 'daily')}<span class="cat-main"><span class="cat-top"><span>${esc(catLabel(c.cat))}</span><span class="num">${fmt(c.perMonth)}<small class="muted"> ${t('review.mo')}</small></span></span><span class="meter thin" style="--c:var(--c-daily)"><i style="width:${pct(c.total, r.cats[0].total).toFixed(1)}%"></i></span></span><span class="cat-pct num">${fmt(c.total, { bare: true })}</span></li>`).join('')}</ul>` : ''}
+        ${r.months >= 2 && r.best.offset !== r.worst.offset ? `<p class="hint" style="margin-top:10px">${t('review.bestWorst', { best: esc(mLong.format(asDate(r.best.start))), bestNet: fmt(r.best.net, { sign: true }), worst: esc(mLong.format(asDate(r.worst.start))), worstNet: fmt(r.worst.net, { sign: true }) })}</p>` : ''}
+      </div>
     </section>`;
   }
 
@@ -552,6 +699,11 @@
   }
 
   // ---------- mois suivant ----------
+  function goalGap(n) {
+    const need = F.goalsState(doc()).filter((g) => !g.done).reduce((s2, g) => s2 + g.perMonth, 0);
+    if (!need) return '';
+    return `<p class="bank-line"><span>${need > n.savings + Math.max(0, n.daily) * 0.25 ? t('goal.gapShort', { need: `<b class="num">${fmt(need)}</b>`, savings: fmt(n.savings) }) : t('goal.gapOk', { need: `<b class="num">${fmt(need)}</b>`, savings: fmt(n.savings) })}</span></p>`;
+  }
   function nextMonthHtml(st) {
     const n = F.nextMonth(doc());
     const fxCount = F.live(doc().fixed).filter((c) => +c.amount > 0 && F.chargeEnv(c) === 'fixed').length;
@@ -568,6 +720,7 @@
         ${row('savings', t('next.savings'), fmt(-n.savings), n.savings ? t('next.savingsNote') : t('next.savingsNone'))}
         ${row('', t('next.daily'), `<span class="${n.daily < 0 ? 'neg' : ''}">${fmt(n.daily)}</span>`, n.daily > 0 ? t('next.dailyNote', { amount: fmt(n.perDay), days: n.days }) : '', 'total')}
       </div>
+      ${goalGap(n)}
       ${n.carry < 0 ? `<p class="bank-line"><span>${t('next.carry', { amount: `<b class="neg num">${fmt(n.carry)}</b>` })}</span></p>` : ''}
       <button class="btn block" data-action="new-planned" data-month="${esc(n.month)}">${t('next.add')}</button>
       </div>
@@ -1082,6 +1235,17 @@
     'edit-tx': (el) => { const x = doc().tx.find((y) => y.id === el.dataset.id && !y.deleted); if (x) txDialog(x); },
     'new-tx': () => txDialog({ kind: 'expense' }),
     'new-income': () => txDialog({ kind: 'income' }),
+    limit: (el) => limitDialog(el.dataset.cat),
+    'bonus-save': (el) => {
+      const amt = Math.round(+el.dataset.amount || 0);
+      if (!(amt > 0)) return;
+      const st = F.monthState(doc());
+      F.addTx(doc(), { date: F.today(), amount: -amt, label: t('bonus.label'), cat: 'epargne', env: 'savings', bonusFor: st.period.start, accountId: doc().settings.defaultAccount || null, source: 'manual' });
+      save(); toast(t('bonus.saved', { amount: fmt(amt) }));
+    },
+    'new-goal': (el) => goalDialog({ label: (el && el.dataset.label) || '' }),
+    'edit-goal': (el) => { const g = F.live(doc().goals).find((x) => x.id === el.dataset.id); if (g) goalDialog(g); },
+    'goal-add': (el) => { const g = F.live(doc().goals).find((x) => x.id === el.dataset.id); if (g) goalAddDialog(g); },
     'new-3a': () => txDialog({ kind: 'expense', label: t('p3a.label'), cat: 'invest' }),
     'new-yearly': (el) => fixedDialog({ freq: 'year', label: (el && el.dataset.label) || '', amount: (el && el.dataset.amount) || '', cat: yearlyCat(el && el.dataset.label), dueMonth: 1 }),
     'make-key': async () => { try { ui.ingestKey = await S.createIngestKey(); render(); } catch (e) { toast(t('wallet.keyErr')); } },

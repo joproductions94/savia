@@ -422,3 +422,14 @@ html, body { overflow-x: clip; }
 .list .num small { display: block; font-size: .7rem; font-weight: 500; text-align: right; }
 .list.wrapmeta .meta, .list.wrapmeta .title { white-space: normal; overflow: visible; text-overflow: clip; }
 .list.wrapmeta .meta { display: block; }
+
+/* catégories avec plafond : la ligne entière se touche */
+.cat-btn { all: unset; box-sizing: border-box; display: contents; cursor: pointer; }
+.cats li:has(.cat-btn) { cursor: pointer; border-radius: 10px; }
+.cats li:has(.cat-btn):hover { background: var(--surface-2); }
+.cat-btn:focus-visible > * { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cats .num small { font-weight: 500; }
+/* 13e salaire / prime */
+.bonus { border: 1px solid color-mix(in srgb, var(--savings) 40%, var(--line)); background: color-mix(in srgb, var(--savings) 6%, var(--surface)); display: grid; gap: 8px; }
+.bonus h2 { margin: 0; }
+.review .big { margin: 2px 0; }
