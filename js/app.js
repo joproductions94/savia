@@ -82,7 +82,13 @@
     renderBadge();
     const v = $('#view');
     v.innerHTML = (VIEWS[ui.tab] || VIEWS.home)(st);
-    if (v.dataset.tab !== ui.tab) { v.dataset.tab = ui.tab; v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
+    if (v.dataset.tab !== ui.tab) {
+      // la vue glisse dans le sens de l'onglet choisi, comme une transition de prototype
+      const order = ['home', 'tx', 'plan', 'settings'];
+      const dir = v.dataset.tab ? Math.sign(order.indexOf(ui.tab) - order.indexOf(v.dataset.tab)) || 1 : 0;
+      v.style.setProperty('--dir', dir);
+      v.dataset.tab = ui.tab; v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+    }
     hideTip && hideTip();
     afterRender();
   }

@@ -389,3 +389,24 @@ dialog > form, .dlg-body, .dlg-body > * { min-width: 0; max-width: 100%; }
   .hchart.draw .hcol:nth-child(n+6) .hbar { animation-delay: 150ms; }
   @keyframes grow { from { transform: scaleY(0); } }
 }
+
+/* ressorts : mêmes courbes que la page de présentation */
+/* la vue glisse de côté : sans ce clip, le débordement passager fait dézoomer les téléphones */
+html, body { overflow-x: clip; }
+:root { --spring: cubic-bezier(.2, .9, .25, 1.15); --spring-dur: .5s; }
+@supports (transition-timing-function: linear(0, 1)) {
+  :root { --spring: linear(0, .009, .035 2.1%, .141 4.4%, .723 12.9%, .938 16.7%, 1.017 19.5%, 1.061 22.6%, 1.074 25.6%, 1.061 29.5%, 1.004 38.7%, .99 43.4%, .997 55%, 1); --spring-dur: .55s; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #view.enter { animation: viewSlide .42s var(--spring); }
+  @keyframes viewSlide { from { opacity: 0; transform: translateX(calc(var(--dir, 0) * 18px)) translateY(calc((1 - var(--dir, 0) * var(--dir, 0)) * 6px)); } }
+  dialog[open] { animation: sheetIn var(--spring-dur) var(--spring); }
+  @keyframes sheetIn { from { transform: translateY(48px); opacity: 0; } }
+  .toast:not([hidden]) { animation: toastIn .45s var(--spring); }
+  @keyframes toastIn { from { transform: translate(-50%, 18px) scale(.96); opacity: 0; } }
+  .tabs button[aria-current="page"]::before { animation: tabMark .45s var(--spring); }
+  @keyframes tabMark { from { transform: scaleX(0); } }
+  .tabs button[aria-current="page"] svg { animation: tabIcon .45s var(--spring); }
+  @keyframes tabIcon { 40% { transform: translateY(-2px) scale(1.08); } }
+  .btn:active, .chip:active, .state:active, .icon-btn:active { transform: scale(.96); }
+}
