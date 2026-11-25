@@ -439,6 +439,25 @@
     return out.reverse();
   }
 
+  // Dépenses du quotidien jour par jour sur une période (pour le graphique du rythme) et par catégorie.
+  function dailySeries(doc, per, todayStr) {
+    const kindOf = Object.fromEntries(live(doc.fixed).map((c) => [c.id, chargeEnv(c)]).concat(live(doc.planned).map((x) => [x.id, 'fixed'])));
+    const t = todayStr || today();
+    const days = diffDays(per.end, per.start) + 1;
+    const byDay = new Array(days).fill(0), byCat = {};
+    for (const x of live(doc.tx)) {
+      if (x.date < per.start || x.date > per.end || x.excluded || x.transfer || !(x.amount < 0)) continue;
+      const e = (x.fixedId && kindOf[x.fixedId]) || x.env || envOf(x.cat);
+      if (e !== 'daily') continue;
+      byDay[diffDays(x.date, per.start)] -= x.amount;
+      byCat[x.cat] = round2((byCat[x.cat] || 0) - x.amount);
+    }
+    const upTo = Math.min(days, Math.max(0, diffDays(t, per.start) + 1));
+    const cum = []; let acc = 0;
+    for (let i = 0; i < upTo; i++) { acc += byDay[i]; cum.push(round2(acc)); }
+    return { days, elapsed: upTo, cum, byDay: byDay.map(round2), byCat: Object.entries(byCat).sort((a, b) => b[1] - a[1]) };
+  }
+
   // Mois suivant : salaire indiqué dans les réglages, charges, contrats et dépenses prévues pour ce mois.
   function nextMonth(doc, todayStr) {
     const st = monthState(doc, todayStr);
@@ -682,7 +701,7 @@
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
     envOf, chargeEnv, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
     addTx, updateTx, deleteTx, matchFixed, relinkFixed, fixedStatus, plannedFor, dueDate, setCheck,
-    monthState, alerts, emergencyFund, history, nextMonth, splitTx, splitRuleFor, parseCommand,
+    monthState, alerts, emergencyFund, history, nextMonth, dailySeries, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,
   };
   if (typeof module === 'object' && module.exports) module.exports = F;

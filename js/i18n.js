@@ -2,6 +2,9 @@
 (function (root) {
   'use strict';
   const fr = {
+    'pace.title': 'Rythme du mois', 'pace.ahead': 'Plus vite que prévu', 'pace.onTrack': 'Dans le rythme', 'pace.cum': 'Dépensé (cumul)', 'pace.ideal': 'Rythme régulier', 'pace.day': 'Ce jour :',
+    'pace.aria': 'Dépenses du quotidien : {spent} sur {budget} disponibles', 'pace.note': '{spent} dépensés sur {budget} disponibles pour le quotidien · {left} jour(s) restant(s).',
+    'cats.title': 'Où va l’argent du quotidien', 'cats.total': '{amount} ce mois', 'cats.rest': 'Autres catégories',
     'app.name': 'Franko',
     'tab.home': 'Accueil', 'tab.tx': 'Mouvements', 'tab.plan': 'Prévoir', 'tab.settings': 'Réglages',
     'sync.local': 'Sur cet appareil', 'sync.ok': 'Enregistré', 'sync.busy': 'Enregistrement…', 'sync.err': 'Hors ligne', 'sync.pending': 'Modifié',
@@ -111,6 +114,9 @@
   };
 
   const de = {
+    'pace.title': 'Ausgabentempo', 'pace.ahead': 'Schneller als geplant', 'pace.onTrack': 'Im Tempo', 'pace.cum': 'Ausgegeben (kumuliert)', 'pace.ideal': 'Gleichmässiges Tempo', 'pace.day': 'An diesem Tag:',
+    'pace.aria': 'Alltagsausgaben: {spent} von {budget} verfügbar', 'pace.note': '{spent} von {budget} für den Alltag ausgegeben · noch {left} Tag(e).',
+    'cats.title': 'Wohin das Alltagsgeld geht', 'cats.total': '{amount} diesen Monat', 'cats.rest': 'Weitere Kategorien',
     'tab.home': 'Übersicht', 'tab.tx': 'Bewegungen', 'tab.plan': 'Planen', 'tab.settings': 'Einstellungen',
     'sync.local': 'Auf diesem Gerät', 'sync.ok': 'Gespeichert', 'sync.busy': 'Speichern…', 'sync.err': 'Offline', 'sync.pending': 'Geändert',
     'quick.placeholder': '«Windeln 24.90 Coop»', 'quick.add': 'Hinzufügen', 'quick.mic': 'Diktieren',
@@ -212,6 +218,9 @@
   };
 
   const it = {
+    'pace.title': 'Ritmo del mese', 'pace.ahead': 'Più veloce del previsto', 'pace.onTrack': 'Nel ritmo', 'pace.cum': 'Speso (cumulato)', 'pace.ideal': 'Ritmo regolare', 'pace.day': 'Questo giorno:',
+    'pace.aria': 'Spese del quotidiano: {spent} su {budget} disponibili', 'pace.note': '{spent} spesi su {budget} disponibili per il quotidiano · {left} giorno/i rimanente/i.',
+    'cats.title': 'Dove vanno i soldi del quotidiano', 'cats.total': '{amount} questo mese', 'cats.rest': 'Altre categorie',
     'tab.home': 'Panoramica', 'tab.tx': 'Movimenti', 'tab.plan': 'Pianificare', 'tab.settings': 'Impostazioni',
     'sync.local': 'Su questo dispositivo', 'sync.ok': 'Salvato', 'sync.busy': 'Salvataggio…', 'sync.err': 'Offline', 'sync.pending': 'Modificato',
     'quick.placeholder': '«Pannolini 24.90 Coop»', 'quick.add': 'Aggiungi', 'quick.mic': 'Dettare',

@@ -80,7 +80,10 @@
     const per = st.period;
     $('#periodLabel').textContent = doc().settings.salary ? `${mLong.format(asDate(per.start))} · J-${per.daysLeft}` : '';
     renderBadge();
-    $('#view').innerHTML = (VIEWS[ui.tab] || VIEWS.home)(st);
+    const v = $('#view');
+    v.innerHTML = (VIEWS[ui.tab] || VIEWS.home)(st);
+    if (v.dataset.tab !== ui.tab) { v.dataset.tab = ui.tab; v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
+    hideTip && hideTip();
   }
   function renderBadge() {
     const b = $('#syncBadge');
@@ -129,7 +132,7 @@
       const paidOut = f.fixedPaid + f.invest.deducted + f.savings.deducted;
       const recent = F.live(d.tx).slice().sort(byDateDesc).slice(0, 5);
       const e = p.emergency;
-      return `
+      return `<div class="dash"><div class="col">
       <section class="card hero" aria-label="${esc(t('home.available'))}">
         <div class="hero-top"><span class="eyebrow">${t('home.available')}</span><span class="pill ${status[0]}">${t(status[1])}</span></div>
         <div class="big ${over ? 'neg' : ''}">${bigAmount(f.left)}</div>
@@ -143,9 +146,12 @@
         </dl>
       </section>
       ${al.length ? `<section><div class="section-head"><h2>${t('home.watch')}</h2></div><div class="card notes">${al.map((a) => `<div class="note ${a.level}">${esc(alertText(a))}</div>`).join('')}</div></section>` : ''}
+      ${paceHtml(st)}
       ${calcHtml(st)}
+      </div><div class="col">
       ${checksHtml(st)}
       ${fixedSection(st)}
+      ${catHtml(st)}
       ${taxCard()}
       <section>
         <div class="section-head"><h2>${t('recent.title')}</h2><button class="link" data-action="tab" data-tab="tx">${t('recent.all')}</button></div>
@@ -158,7 +164,7 @@
           <div class="small">${t('fund.text', { fund: `<b class="num">${fmt(e.fund)}</b>`, target: fmt(e.target), months: e.months })}</div>
           <div class="small muted">${p.shifted ? t('fund.shift', { amount: fmt(p.shifted) }) : e.level === 'ok' ? t('fund.ok') : t('fund.building')}</div>
         </div>
-      </section>`;
+      </section></div></div>`;
     },
 
     tx() {
@@ -283,6 +289,64 @@
     return t('alert.' + a.id, p);
   }
 
+  // ---------- graphiques ----------
+  // Rythme du mois : dépenses du quotidien cumulées, comparées au rythme régulier qui épuise le budget le dernier jour.
+  function paceHtml(st) {
+    const f = st.flow, per = st.period;
+    const s = F.dailySeries(doc(), per);
+    const budget = Math.max(0, f.dailyBudget);
+    if (!s.elapsed) return '';
+    const W = 560, H = 210, L = 46, R = 14, T = 14, B = 28;
+    const spent = s.cum[s.cum.length - 1] || 0;
+    const top = Math.max(budget, spent, 1) * 1.12;
+    const x = (i) => L + (i / Math.max(1, s.days - 1)) * (W - L - R);
+    const y = (v) => T + (H - T - B) * (1 - v / top);
+    const path = s.cum.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    const area = `${path} L${x(s.cum.length - 1).toFixed(1)} ${y(0)} L${x(0).toFixed(1)} ${y(0)} Z`;
+    const idealAt = (i) => (budget * (i + 1)) / s.days;
+    const ahead = spent > idealAt(s.elapsed - 1) + 0.5;
+    const ticks = [0, budget].filter((v, i, a) => a.indexOf(v) === i);
+    const labelDays = [0, Math.floor((s.days - 1) / 2), s.days - 1];
+    const dayDate = (i) => F.addDays(per.start, i);
+    const hits = s.cum.map((v, i) => {
+      const tip = `<b>${esc(dLong.format(asDate(dayDate(i))))}</b><br>${t('pace.day')} ${fmt(s.byDay[i])}<br>${t('pace.cum')} ${fmt(v)}<br>${t('pace.ideal')} ${fmt(idealAt(i))}`;
+      const w = (W - L - R) / Math.max(1, s.days - 1);
+      return `<rect class="hit" x="${(x(i) - w / 2).toFixed(1)}" y="${T}" width="${w.toFixed(1)}" height="${H - T - B}" data-tip="${esc(tip)}" data-cx="${x(i).toFixed(1)}" data-cy="${y(v).toFixed(1)}"/>`;
+    }).join('');
+    return `<section>
+      <div class="section-head"><h2>${t('pace.title')}</h2><span class="sub">${ahead ? `<span class="pill warn">${t('pace.ahead')}</span>` : `<span class="pill ok">${t('pace.onTrack')}</span>`}</span></div>
+      <div class="card chart-card">
+        <div class="legend inline"><span style="--c:var(--c-daily)">${t('pace.cum')}</span><span class="dash" style="--c:var(--faint)">${t('pace.ideal')}</span></div>
+        <div class="chart" data-w="${W}">
+          <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('pace.aria', { spent: fmt(spent), budget: fmt(budget) }))}">
+            ${ticks.map((v) => `<line class="gridl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${fmt(v, { bare: true }).replace(/\.\d\d$/, '')}</text>`).join('')}
+            ${labelDays.map((i) => `<text class="axis" x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === s.days - 1 ? 'end' : 'middle'}">${esc(ds(dayDate(i)))}</text>`).join('')}
+            <line x1="${x(0)}" y1="${y(budget / s.days)}" x2="${x(s.days - 1)}" y2="${y(budget)}" stroke="var(--faint)" stroke-width="1.5" stroke-dasharray="5 5"/>
+            <path d="${area}" fill="var(--c-daily)" fill-opacity=".12"/>
+            <path d="${path}" fill="none" stroke="var(--c-daily)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="${x(s.cum.length - 1)}" cy="${y(spent)}" r="5" fill="var(--c-daily)" stroke="var(--surface)" stroke-width="2"/>
+            <line class="cross" y1="${T}" y2="${H - B}"/>
+            ${hits}
+          </svg>
+        </div>
+        <p class="hint">${t('pace.note', { spent: `<b class="num">${fmt(spent)}</b>`, budget: `<b class="num">${fmt(budget)}</b>`, left: s.days - s.elapsed })}</p>
+      </div>
+    </section>`;
+  }
+  // Où va l'argent du quotidien : catégories du mois.
+  function catHtml(st) {
+    const s = F.dailySeries(doc(), st.period);
+    if (!s.byCat.length) return '';
+    const total = s.byCat.reduce((a, c) => a + c[1], 0);
+    const top = s.byCat.slice(0, 5), rest = s.byCat.slice(5).reduce((a, c) => a + c[1], 0);
+    const rows = top.concat(rest > 0 ? [['__rest', rest]] : []);
+    const max = rows[0][1];
+    return `<section>
+      <div class="section-head"><h2>${t('cats.title')}</h2><span class="sub">${t('cats.total', { amount: fmt(total) })}</span></div>
+      <div class="card"><ul class="cats">${rows.map(([c, v]) => `<li>${tile(c === '__rest' ? 'autre' : c, 'daily')}<span class="cat-main"><span class="cat-top"><span>${esc(c === '__rest' ? t('cats.rest') : catLabel(c))}</span><span class="num">${fmt(v)}</span></span><span class="meter thin" style="--c:var(--c-daily)"><i style="width:${pct(v, max).toFixed(1)}%"></i></span></span><span class="cat-pct num">${Math.round((v / total) * 100)} %</span></li>`).join('')}</ul></div>
+    </section>`;
+  }
+
   // Calcul du mois, ligne par ligne ; la pastille de chaque ligne correspond au segment de la barre.
   function calcHtml(st) {
     const f = st.flow, p = st.plan;
@@ -401,7 +465,8 @@
     const cols = h.map((m) => {
       const fixedLike = m.fixed + m.invest + m.savings;
       const tip = `${ds(m.start)} – ${ds(m.end)} : ${t('hist.inc')} ${fmt(m.income)}, ${t('tx.out')} ${fmt(m.spent)}, ${t('tx.net')} ${fmt(m.net, { sign: true })}`;
-      return `<button class="hcol${m.offset === ui.offset ? ' on' : ''}" data-action="goto-period" data-o="${m.offset}" title="${esc(tip)}" aria-label="${esc(tip)}" aria-pressed="${m.offset === ui.offset}">
+      const rich = `<b>${esc(mLong.format(asDate(m.start)))}</b> · ${esc(ds(m.start))} – ${esc(ds(m.end))}<br><i style="background:var(--c-income)"></i>${t('hist.inc')} ${fmt(m.income)}<br><i style="background:var(--c-fixed)"></i>${t('hist.fixed')} ${fmt(fixedLike)}<br><i style="background:var(--c-daily)"></i>${t('hist.daily')} ${fmt(m.daily)}<br>${t('tx.net')} <b>${fmt(m.net, { sign: true })}</b>`;
+      return `<button class="hcol${m.offset === ui.offset ? ' on' : ''}" data-action="goto-period" data-o="${m.offset}" data-tip="${esc(rich)}" aria-label="${esc(tip)}" aria-pressed="${m.offset === ui.offset}">
         <span class="hbars" style="height:${HGT}px"><span class="hbar inc" style="height:${px(m.income)}px"></span>
         <span class="hbar out">${fixedLike > 0 ? `<i style="height:${px(fixedLike)}px;background:var(--c-fixed)"></i>` : ''}${m.daily > 0 ? `<i style="height:${px(m.daily)}px;background:var(--c-daily)"></i>` : ''}</span></span>
         <span class="hlab">${esc(mShort.format(asDate(m.start)).replace('.', ''))}</span></button>`;
@@ -884,6 +949,31 @@
       S.signIn(email).then(() => toast(t('auth.sent', { email }))).catch(() => toast(t('auth.unavailable')));
     }
   });
+
+  // Infobulle commune aux graphiques : survol à la souris, toucher au doigt.
+  const tipEl = document.createElement('div');
+  tipEl.className = 'tip'; tipEl.hidden = true; tipEl.setAttribute('role', 'tooltip');
+  document.body.appendChild(tipEl);
+  function showTip(ev) {
+    const el = ev.target.closest && ev.target.closest('[data-tip]');
+    if (!el) { hideTip(); return; }
+    tipEl.innerHTML = el.dataset.tip; tipEl.hidden = false;
+    let cx, cy;
+    const svgEl = el.ownerSVGElement;
+    if (svgEl && el.dataset.cx) {
+      const r = svgEl.getBoundingClientRect(), k = r.width / svgEl.viewBox.baseVal.width;
+      cx = r.left + (+el.dataset.cx) * k; cy = r.top + (+el.dataset.cy) * k;
+      const cross = svgEl.querySelector('.cross');
+      if (cross) { cross.setAttribute('x1', el.dataset.cx); cross.setAttribute('x2', el.dataset.cx); cross.classList.add('on'); }
+    } else { const r = el.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top; }
+    const w = tipEl.offsetWidth;
+    tipEl.style.left = Math.min(innerWidth - w / 2 - 8, Math.max(w / 2 + 8, cx)) + 'px';
+    tipEl.style.top = Math.max(tipEl.offsetHeight + 12, cy) + window.scrollY + 'px';
+  }
+  function hideTip() { tipEl.hidden = true; document.querySelectorAll('.cross.on').forEach((c) => c.classList.remove('on')); }
+  document.addEventListener('pointermove', (ev) => { if (ev.pointerType === 'mouse') showTip(ev); });
+  document.addEventListener('pointerdown', (ev) => { if (ev.pointerType !== 'mouse') showTip(ev); });
+  window.addEventListener('scroll', hideTip, { passive: true });
 
   let toastTimer = null;
   function toast(msg, actions) {

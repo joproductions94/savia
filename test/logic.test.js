@@ -188,3 +188,19 @@ test('alertes : identifiants seulement (texte traduit par l’interface)', () =>
   assert.ok(ids.includes('short'));
   assert.ok(ids.includes('big'));
 });
+
+test('rythme du quotidien : cumul jour par jour et catégories (hors charges, virements, hors budget)', () => {
+  const d = doc();
+  d.fixed = [{ id: 'l', label: 'Loyer', amount: 1000, cat: 'logement' }];
+  F.addTx(d, { date: '2026-10-20', amount: 4000, label: 'Employeur', cat: 'revenu' });
+  F.addTx(d, { date: '2026-10-20', amount: -40, label: 'Migros', cat: 'courses' });
+  F.addTx(d, { date: '2026-10-22', amount: -60, label: 'Coop', cat: 'courses' });
+  F.addTx(d, { date: '2026-10-22', amount: -25, label: 'Cinéma', cat: 'loisirs' });
+  F.addTx(d, { date: '2026-10-22', amount: -1000, label: 'Loyer', cat: 'logement' });
+  F.addTx(d, { date: '2026-10-22', amount: -99, label: 'Pro', cat: 'autre', excluded: true });
+  const per = F.periodFor(d, '2026-10-23');
+  const s = F.dailySeries(d, per, '2026-10-23');
+  assert.deepStrictEqual(s.cum, [40, 40, 125, 125]);
+  assert.deepStrictEqual(s.byCat, [['courses', 100], ['loisirs', 25]]);
+  assert.strictEqual(s.days, 31);
+});
