@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Franko · Budget familial suisse</title>
+  <meta name="description" content="Franko vous dit combien il vous reste une fois les charges payées. Budget familial en CHF, en français, allemand et italien, avec l'estimation des impôts.">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/site.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav">
+      <a class="brand" href="./"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0d5c57"/><path d="M22 46V18h22M22 32h16" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>Franko</a>
+      <div class="langs" role="group" aria-label="Langue / Sprache / Lingua">
+        <button data-lang="fr">FR</button><button data-lang="de">DE</button><button data-lang="it">IT</button>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <h1 data-i="h1"></h1>
+        <p class="lead" data-i="lead"></p>
+        <div class="cta"><a class="btn primary" href="app.html" data-i="cta"></a><a class="btn" href="#prix" data-i="cta2"></a></div>
+        <p class="fine" data-i="fine"></p>
+      </div>
+      <div class="phone" aria-label="Exemple">
+        <div class="eyebrow" data-i="m.eyebrow"></div>
+        <div class="big">2’202.60 <small>CHF</small></div>
+        <div class="row"><span data-i="m.salary"></span><span>5’100.00</span></div>
+        <div class="row"><span data-i="m.fixed"></span><span>−1’365.00</span></div>
+        <div class="row"><span data-i="m.daily"></span><span>−96.40</span></div>
+        <div class="row sum"><span data-i="m.now"></span><span>3’638.60</span></div>
+        <div class="row"><span data-i="m.pending"></span><span>−1’436.00</span></div>
+        <div class="note" data-i="m.note"></div>
+      </div>
+    </header>
+  </div>
+
+  <section class="band"><div class="wrap">
+    <h2 data-i="how.title"></h2>
+    <div class="steps">
+      <div><div class="n">01</div><h3 data-i="how.1.t"></h3><p data-i="how.1.p"></p></div>
+      <div><div class="n">02</div><h3 data-i="how.2.t"></h3><p data-i="how.2.p"></p></div>
+      <div><div class="n">03</div><h3 data-i="how.3.t"></h3><p data-i="how.3.p"></p></div>
+    </div>
+  </div></section>
+
+  <section class="band"><div class="wrap">
+    <h2 data-i="feat.title"></h2>
+    <div class="feat">
+      <div><h3 data-i="feat.1.t"></h3><p data-i="feat.1.p"></p></div>
+      <div><h3 data-i="feat.2.t"></h3><p data-i="feat.2.p"></p></div>
+      <div><h3 data-i="feat.3.t"></h3><p data-i="feat.3.p"></p></div>
+      <div><h3 data-i="feat.4.t"></h3><p data-i="feat.4.p"></p></div>
+    </div>
+  </div></section>
+
+  <section class="band" id="prix"><div class="wrap">
+    <h2 data-i="price.title"></h2>
+    <div class="prices">
+      <div class="price"><h3 data-i="price.free"></h3><div class="amt">0 <small>CHF</small></div><ul data-i="price.free.list"></ul><a class="btn" href="app.html" data-i="cta"></a></div>
+      <div class="price pro"><h3>Pro</h3><div class="amt"><span id="pm">4.90</span> <small data-i="price.month"></small></div><p class="fine" data-i="price.year"></p><ul data-i="price.pro.list"></ul><a class="btn primary" href="app.html" data-i="price.trial"></a></div>
+    </div>
+  </div></section>
+
+  <section class="band"><div class="wrap">
+    <h2 data-i="faq.title"></h2>
+    <div class="faq">
+      <details><summary data-i="faq.1.q"></summary><p data-i="faq.1.a"></p></details>
+      <details><summary data-i="faq.2.q"></summary><p data-i="faq.2.a"></p></details>
+      <details><summary data-i="faq.3.q"></summary><p data-i="faq.3.a"></p></details>
+      <details><summary data-i="faq.4.q"></summary><p data-i="faq.4.a"></p></details>
+    </div>
+  </div></section>
+
+  <div class="wrap"><footer><span>© 2026 Franko · jo.productions</span><a href="legal.html" data-i="legal"></a></footer></div>
+
+<script>
+(function () {
+  const L = {
+    fr: {
+      h1: 'Combien il vous reste, <em>une fois tout payé.</em>',
+      lead: 'Franko suit votre mois du salaire au salaire suivant. Il ne compte que ce qui est vraiment payé, montre ce qui reste à payer et vous dit ce que vous pouvez dépenser chaque jour.',
+      cta: 'Commencer gratuitement', cta2: 'Voir les prix', fine: 'Sans carte bancaire. Vos données restent sur votre téléphone tant que vous ne créez pas de compte.',
+      'm.eyebrow': 'Après tout payé', 'm.salary': 'Salaire reçu', 'm.fixed': 'Charges payées', 'm.daily': 'Dépensé au quotidien', 'm.now': 'Disponible maintenant', 'm.pending': 'Pas encore payé',
+      'm.note': '<b>Environ 88 CHF par jour</b> jusqu’au prochain salaire.',
+      'how.title': 'Trois minutes pour démarrer', 'how.1.t': 'Votre salaire', 'how.1.p': 'Indiquez votre salaire net et votre canton. Franko repère ensuite seul le jour où il arrive.',
+      'how.2.t': 'Vos charges', 'how.2.p': 'Loyer, assurance maladie, crèche, leasing : vous touchez « Payé » quand c’est fait, ou votre relevé bancaire le confirme.',
+      'how.3.t': 'Votre quotidien', 'how.3.p': 'Dites ou tapez « courses 45 Migros ». Franko classe la dépense et met à jour ce qui vous reste.',
+      'feat.title': 'Pensé pour les ménages suisses', 'feat.1.t': 'Relevés de toutes les banques', 'feat.1.p': 'Import CSV de PostFinance, UBS, Raiffeisen, banques cantonales, Neon, Revolut… Les doublons et les virements entre vos comptes sont reconnus.',
+      'feat.2.t': 'Impôts estimés chaque mois', 'feat.2.p': 'Impôt fédéral exact et estimation cantonale, avec vos déductions (pension alimentaire, garde, 3e pilier). Vous savez quoi mettre de côté.',
+      'feat.3.t': 'Le mois prochain, déjà prévu', 'feat.3.p': 'Notez un cadeau, une réparation ou une facture annuelle dans le bon mois : Franko vous dit dès maintenant ce qu’il vous restera.',
+      'feat.4.t': 'Français, Deutsch, Italiano', 'feat.4.p': 'Toute l’application dans votre langue, montants en CHF arrondis comme en Suisse, mois du salaire au salaire.',
+      'price.title': 'Simple et sans engagement', 'price.free': 'Gratuit', 'price.month': 'CHF / mois', 'price.year': 'ou 49 CHF par an (deux mois offerts)', 'price.trial': 'Essayer Pro 30 jours',
+      'price.free.list': '<li>Budget du mois et charges fixes</li><li>Saisie rapide et dictée</li><li>Prévoir le mois prochain</li><li>3 derniers mois</li>',
+      'price.pro.list': '<li>Tout le plan gratuit</li><li>Import des relevés bancaires</li><li>Estimation des impôts</li><li>Historique complet</li><li>Synchronisation sur tous vos appareils</li>',
+      'faq.title': 'Questions fréquentes', 'faq.1.q': 'Où sont mes données ?', 'faq.1.a': 'Sans compte, uniquement dans votre navigateur. Avec un compte, dans une base de données chiffrée en Europe, accessible à vous seul. Franko ne se connecte jamais à votre banque : vous importez vous-même vos relevés.',
+      'faq.2.q': 'Mon canton est-il pris en charge ?', 'faq.2.a': 'L’impôt fédéral est calculé pour toute la Suisse. L’estimation cantonale couvre Fribourg et s’étend canton par canton ; ailleurs, vous indiquez le montant de votre bordereau et Franko le répartit par mois.',
+      'faq.3.q': 'Puis-je partager le budget avec mon ou ma partenaire ?', 'faq.3.a': 'Oui : connectez-vous avec le même compte sur vos deux téléphones, les changements se fusionnent sans s’écraser.',
+      'faq.4.q': 'Comment résilier ?', 'faq.4.a': 'En deux clics depuis Réglages › Compte et abonnement. Vous gardez vos données et le plan gratuit.',
+      legal: 'Conditions et confidentialité',
+    },
+    de: {
+      h1: 'Was Ihnen bleibt, <em>wenn alles bezahlt ist.</em>',
+      lead: 'Franko begleitet Ihren Monat von Lohn zu Lohn. Es zählt nur, was wirklich bezahlt ist, zeigt, was noch offen ist, und sagt Ihnen, was Sie pro Tag ausgeben können.',
+      cta: 'Gratis starten', cta2: 'Preise ansehen', fine: 'Ohne Kreditkarte. Ihre Daten bleiben auf Ihrem Telefon, solange Sie kein Konto erstellen.',
+      'm.eyebrow': 'Wenn alles bezahlt ist', 'm.salary': 'Erhaltener Lohn', 'm.fixed': 'Bezahlte Fixkosten', 'm.daily': 'Im Alltag ausgegeben', 'm.now': 'Jetzt verfügbar', 'm.pending': 'Noch nicht bezahlt',
+      'm.note': '<b>Etwa 88 CHF pro Tag</b> bis zum nächsten Lohn.',
+      'how.title': 'In drei Minuten startklar', 'how.1.t': 'Ihr Lohn', 'how.1.p': 'Geben Sie Nettolohn und Kanton ein. Franko erkennt danach selbst, wann der Lohn eintrifft.',
+      'how.2.t': 'Ihre Fixkosten', 'how.2.p': 'Miete, Krankenkasse, Kita, Leasing: Sie tippen «Bezahlt», sobald es erledigt ist, oder Ihr Kontoauszug bestätigt es.',
+      'how.3.t': 'Ihr Alltag', 'how.3.p': 'Sagen oder tippen Sie «Einkauf 45 Migros». Franko ordnet die Ausgabe zu und aktualisiert, was Ihnen bleibt.',
+      'feat.title': 'Für Schweizer Haushalte gemacht', 'feat.1.t': 'Kontoauszüge aller Banken', 'feat.1.p': 'CSV-Import von PostFinance, UBS, Raiffeisen, Kantonalbanken, Neon, Revolut… Doppelte Einträge und Überträge zwischen Ihren Konten werden erkannt.',
+      'feat.2.t': 'Steuern Monat für Monat', 'feat.2.p': 'Exakte Bundessteuer und Kantonsschätzung mit Ihren Abzügen (Unterhalt, Betreuung, Säule 3a). Sie wissen, was Sie zurücklegen müssen.',
+      'feat.3.t': 'Der nächste Monat, schon geplant', 'feat.3.p': 'Erfassen Sie ein Geschenk, eine Reparatur oder eine Jahresrechnung im richtigen Monat: Franko zeigt Ihnen jetzt schon, was Ihnen bleibt.',
+      'feat.4.t': 'Deutsch, Français, Italiano', 'feat.4.p': 'Die ganze App in Ihrer Sprache, Beträge in CHF auf 5 Rappen gerundet, Monat von Lohn zu Lohn.',
+      'price.title': 'Einfach und ohne Bindung', 'price.free': 'Gratis', 'price.month': 'CHF / Monat', 'price.year': 'oder 49 CHF pro Jahr (zwei Monate geschenkt)', 'price.trial': 'Pro 30 Tage testen',
+      'price.free.list': '<li>Monatsbudget und Fixkosten</li><li>Schnelle Erfassung und Diktat</li><li>Den nächsten Monat planen</li><li>Letzte 3 Monate</li>',
+      'price.pro.list': '<li>Alles aus dem Gratisplan</li><li>Import von Kontoauszügen</li><li>Steuerschätzung</li><li>Ganzer Verlauf</li><li>Synchronisation auf allen Geräten</li>',
+      'faq.title': 'Häufige Fragen', 'faq.1.q': 'Wo sind meine Daten?', 'faq.1.a': 'Ohne Konto nur in Ihrem Browser. Mit Konto in einer verschlüsselten Datenbank in Europa, nur für Sie zugänglich. Franko verbindet sich nie mit Ihrer Bank: Sie importieren Ihre Auszüge selbst.',
+      'faq.2.q': 'Wird mein Kanton unterstützt?', 'faq.2.a': 'Die Bundessteuer wird für die ganze Schweiz berechnet. Die Kantonsschätzung deckt Freiburg ab und wird Kanton für Kanton erweitert; andernorts geben Sie den Betrag Ihrer Steuerrechnung ein und Franko verteilt ihn auf die Monate.',
+      'faq.3.q': 'Kann ich das Budget mit meinem Partner teilen?', 'faq.3.a': 'Ja: Melden Sie sich auf beiden Telefonen mit demselben Konto an, Änderungen werden zusammengeführt, ohne sich zu überschreiben.',
+      'faq.4.q': 'Wie kündige ich?', 'faq.4.a': 'Mit zwei Klicks unter Einstellungen › Konto und Abo. Ihre Daten und der Gratisplan bleiben erhalten.',
+      legal: 'Bedingungen und Datenschutz',
+    },
+    it: {
+      h1: 'Quanto le resta, <em>dopo aver pagato tutto.</em>',
+      lead: 'Franko segue il suo mese da un salario all’altro. Conta solo ciò che è davvero pagato, mostra cosa resta da pagare e le dice quanto può spendere ogni giorno.',
+      cta: 'Iniziare gratis', cta2: 'Vedere i prezzi', fine: 'Senza carta di credito. I suoi dati restano sul telefono finché non crea un account.',
+      'm.eyebrow': 'Dopo aver pagato tutto', 'm.salary': 'Salario ricevuto', 'm.fixed': 'Spese pagate', 'm.daily': 'Speso nel quotidiano', 'm.now': 'Disponibile ora', 'm.pending': 'Non ancora pagato',
+      'm.note': '<b>Circa 88 CHF al giorno</b> fino al prossimo salario.',
+      'how.title': 'Tre minuti per iniziare', 'how.1.t': 'Il suo salario', 'how.1.p': 'Indichi il salario netto e il cantone. Franko riconosce poi da solo il giorno in cui arriva.',
+      'how.2.t': 'Le sue spese fisse', 'how.2.p': 'Affitto, cassa malati, asilo nido, leasing: tocca «Pagato» quando è fatto, oppure lo conferma l’estratto conto.',
+      'how.3.t': 'Il suo quotidiano', 'how.3.p': 'Dica o scriva «spesa 45 Migros». Franko classifica la spesa e aggiorna quanto le resta.',
+      'feat.title': 'Pensato per le famiglie in Svizzera', 'feat.1.t': 'Estratti di tutte le banche', 'feat.1.p': 'Importazione CSV da PostFinance, UBS, Raiffeisen, BancaStato, Neon, Revolut… Doppioni e giroconti tra i suoi conti vengono riconosciuti.',
+      'feat.2.t': 'Imposte stimate ogni mese', 'feat.2.p': 'Imposta federale esatta e stima cantonale, con le sue deduzioni (alimenti, custodia, 3° pilastro). Sa quanto mettere da parte.',
+      'feat.3.t': 'Il mese prossimo, già previsto', 'feat.3.p': 'Annoti un regalo, una riparazione o una fattura annuale nel mese giusto: Franko le dice già ora quanto le resterà.',
+      'feat.4.t': 'Italiano, Deutsch, Français', 'feat.4.p': 'Tutta l’app nella sua lingua, importi in CHF arrotondati ai 5 centesimi, mese da salario a salario.',
+      'price.title': 'Semplice e senza impegno', 'price.free': 'Gratuito', 'price.month': 'CHF / mese', 'price.year': 'o 49 CHF all’anno (due mesi offerti)', 'price.trial': 'Provare Pro 30 giorni',
+      'price.free.list': '<li>Budget del mese e spese fisse</li><li>Inserimento rapido e dettatura</li><li>Pianificare il mese prossimo</li><li>Ultimi 3 mesi</li>',
+      'price.pro.list': '<li>Tutto il piano gratuito</li><li>Importazione degli estratti conto</li><li>Stima delle imposte</li><li>Storico completo</li><li>Sincronizzazione su tutti i dispositivi</li>',
+      'faq.title': 'Domande frequenti', 'faq.1.q': 'Dove sono i miei dati?', 'faq.1.a': 'Senza account, solo nel suo browser. Con un account, in una banca dati cifrata in Europa, accessibile solo a lei. Franko non si collega mai alla sua banca: importa lei stessa gli estratti.',
+      'faq.2.q': 'Il mio cantone è supportato?', 'faq.2.a': 'L’imposta federale è calcolata per tutta la Svizzera. La stima cantonale copre Friburgo e si estende cantone per cantone; altrove indica l’importo della sua fattura e Franko lo ripartisce sui mesi.',
+      'faq.3.q': 'Posso condividere il budget con il mio partner?', 'faq.3.a': 'Sì: acceda con lo stesso account sui due telefoni, le modifiche si uniscono senza sovrascriversi.',
+      'faq.4.q': 'Come disdire?', 'faq.4.a': 'In due clic da Impostazioni › Account e abbonamento. Conserva i dati e il piano gratuito.',
+      legal: 'Condizioni e privacy',
+    },
+  };
+  // Textes écrits ici même (aucune donnée externe) : insertion HTML sans risque.
+  function apply(lang) {
+    const d = L[lang] || L.fr;
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i]').forEach((el) => { el.innerHTML = d[el.dataset.i] || L.fr[el.dataset.i] || ''; });
+    document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.lang === lang));
+    try { const st = JSON.parse(localStorage.getItem('franko.ui.state') || '{}'); st.lang = lang; localStorage.setItem('franko.ui.state', JSON.stringify(st)); } catch (e) { /* préférence non retenue */ }
+  }
+  let lang = 'fr';
+  try { lang = (JSON.parse(localStorage.getItem('franko.ui.state') || '{}').lang) || navigator.language.slice(0, 2); } catch (e) { lang = navigator.language.slice(0, 2); }
+  apply(L[lang] ? lang : 'fr');
+  document.querySelector('.langs').addEventListener('click', (e) => { const b = e.target.closest('[data-lang]'); if (b) apply(b.dataset.lang); });
+  const c = window.FRANKO_CONFIG || {};
+  if (c.priceMonth) document.getElementById('pm').textContent = c.priceMonth;
+})();
+</script>
+</body>
+</html>
