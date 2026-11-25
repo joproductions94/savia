@@ -75,7 +75,7 @@
     { id: 'courses', env: 'daily', kw: ['courses', 'migros', 'coop', 'denner', 'aldi', 'lidl', 'volg', 'spar', 'manor food', 'epicerie', 'supermarche', 'boulangerie', 'boucherie', 'einkauf', 'lebensmittel', 'backerei', 'metzgerei', 'spesa', 'alimentari', 'panetteria', 'groceries', 'supermercado', 'comida'] },
     { id: 'bebe', env: 'daily', kw: ['couches', 'couche', 'bebe', 'lait infantile', 'biberon', 'windeln', 'baby', 'pannolini', 'neonato', 'diaper', 'panal'] },
     { id: 'sante', env: 'daily', kw: ['pharmacie', 'medecin', 'docteur', 'dentiste', 'pediatre', 'hopital', 'physio', 'amavita', 'sun store', 'apotheke', 'arzt', 'zahnarzt', 'spital', 'farmacia', 'medico', 'dentista', 'ospedale', 'pharmacy', 'doctor', 'dentist'] },
-    { id: 'transport', env: 'daily', kw: ['essence', 'carburant', 'cff', 'sbb', 'ffs', 'tpf', 'tpg', 'tl ', 'bus', 'train', 'parking', 'peage', 'vignette', 'garage', 'taxi', 'uber', 'mobility', 'eni', 'shell', 'avia', 'tamoil', 'socar', 'migrol', 'agrola', 'esso', 'bp ', 'benzin', 'tankstelle', 'zug', 'parkhaus', 'benzina', 'treno', 'fuel', 'gasolina', 'voiture', 'auto', 'carro'] },
+    { id: 'transport', env: 'daily', kw: ['demi tarif', 'halbtax', 'meta prezzo', 'abonnement general', 'generalabonnement', 'abbonamento generale', 'impot vehicule', 'taxe vehicule', 'motorfahrzeugsteuer', 'verkehrssteuer', 'tassa di circolazione', 'plaques', 'essence', 'carburant', 'cff', 'sbb', 'ffs', 'tpf', 'tpg', 'tl ', 'bus', 'train', 'parking', 'peage', 'vignette', 'garage', 'taxi', 'uber', 'mobility', 'eni', 'shell', 'avia', 'tamoil', 'socar', 'migrol', 'agrola', 'esso', 'bp ', 'benzin', 'tankstelle', 'zug', 'parkhaus', 'benzina', 'treno', 'fuel', 'gasolina', 'voiture', 'auto', 'carro'] },
     { id: 'sorties', env: 'daily', kw: ['restaurant', 'resto', 'cafe', 'bar', 'take away', 'pizza', 'kebab', 'mcdonald', 'burger king', 'starbucks', 'beizli', 'ristorante', 'pizzeria', 'trattoria', 'brunch', 'lunch', 'dinner', 'restaurante', 'sumup'] },
     { id: 'loisirs', env: 'daily', kw: ['cinema', 'kino', 'sport', 'piscine', 'fitness', 'netflix', 'spotify', 'disney', 'hbo', 'youtube', 'apple', 'playstation', 'steam', 'zoo', 'musee', 'museum', 'museo', 'livre', 'buch', 'libro', 'jouet', 'spielzeug', 'giocattolo', 'vacances', 'ferien', 'vacanze', 'hotel'] },
     { id: 'vetements', env: 'daily', kw: ['vetement', 'habits', 'chaussures', 'h&m', 'zara', 'c&a', 'zalando', 'kleider', 'schuhe', 'vestiti', 'scarpe', 'clothes', 'ropa'] },
@@ -91,6 +91,18 @@
   const envOf = (cat) => (CAT_BY_ID[cat] ? CAT_BY_ID[cat].env : 'daily');
   // Une charge fixe de catégorie « investissement » ou « épargne » remplit cette enveloppe (Swisslife, 3a, ordre permanent).
   const chargeEnv = (c) => { const e = envOf(c && c.cat); return e === 'invest' || e === 'savings' ? e : 'fixed'; };
+  // Facture annuelle (Serafe, RC/ménage, assurance auto, taxe véhicule…) : un douzième est mis de côté chaque mois,
+  // et la facture se paie avec cette réserve le mois venu, comme le ferait un comptable avec un compte de provisions.
+  const isYearly = (c) => !!c && c.freq === 'year' && num(c.dueMonth) >= 1 && num(c.dueMonth) <= 12;
+  const monthlyOf = (c) => (isYearly(c) ? round2(num(c.amount) / 12) : num(c.amount));
+  const monthsFrom = (a, b) => { const [y1, m1] = a.split('-').map(Number), [y2, m2] = b.split('-').map(Number); return (y2 - y1) * 12 + (m2 - m1); };
+  // Part de la facture déjà réservée au mois d'échéance (mois de salaire « AAAA-MM »), mois de l'échéance compris.
+  function yearlyCovered(c, month) {
+    const a = num(c.amount);
+    if (!c.since) return a;
+    const n = clamp(monthsFrom(c.since, month) + 1, 0, 12);
+    return round2(Math.min(a, (a * n) / 12));
+  }
 
   const FILLER = new Set(['sa', 'ag', 'gmbh', 'sarl', 'sàrl', 'the', 'les', 'des', 'der', 'die', 'das', 'und', 'pour', 'chez', 'via', 'neon', 'twint', 'paiement', 'zahlung', 'pagamento', 'payment', 'achat', 'kauf', 'acquisto', 'carte', 'karte', 'debit', 'ordre', 'auftrag', 'virement', 'envoye', 'www', 'com']);
   // Mot du libellé qui sert de clé d'apprentissage (« Mediamarkt Crissier » → « mediamarkt »).
@@ -127,7 +139,7 @@
     const preset = PRESETS[s.preset] ? s.preset : s.preset === 'perso' ? 'perso' : 'famille';
     const split = normSplit(preset === 'perso' ? s.split : PRESETS[preset]);
     const charges = live(s.fixedCharges).filter((c) => num(c.amount) > 0);
-    const sumOf = (k) => round2(charges.filter((c) => chargeEnv(c) === k).reduce((t, c) => t + num(c.amount), 0));
+    const sumOf = (k) => round2(charges.filter((c) => chargeEnv(c) === k).reduce((t, c) => t + monthlyOf(c), 0));
     const fixedTotal = sumOf('fixed'), investFixed = sumOf('invest'), savingsFixed = sumOf('savings');
     const mode = charges.length ? 'actual' : 'percent';
     const env = {};
@@ -156,8 +168,9 @@
       env.savings = round2(env.savings + shifted);
     }
     const covered = needs > 0 ? Math.floor((fund / needs) * 10) / 10 : 0;
+    const provision = round2(charges.filter((c) => isYearly(c) && chargeEnv(c) === 'fixed').reduce((t, c) => t + monthlyOf(c), 0));
     return {
-      salary, preset, split, env, shifted, mode, fixedTotal, investFixed, savingsFixed,
+      salary, preset, split, env, shifted, mode, fixedTotal, investFixed, savingsFixed, provision,
       overBy: round2(Math.max(0, fixedTotal + investFixed + savingsFixed - salary)),
       afterFixed: round2(salary - env.fixed),
       emergency: { fund, target, months, needs, covered, level: covered < 3 ? 'low' : covered < months ? 'building' : 'ok' },
@@ -291,14 +304,19 @@
   function fixedStatus(doc, per) {
     const inPer = live(doc.tx).filter((x) => !x.excluded && x.date >= per.start && x.date <= per.end);
     const tx = inPer.filter((x) => x.fixedId);
-    const list = live(doc.fixed).filter((c) => num(c.amount) > 0)
+    const month = salaryMonth(per), mNum = +month.slice(5, 7);
+    const list = live(doc.fixed).filter((c) => num(c.amount) > 0 && (!isYearly(c) || num(c.dueMonth) === mNum))
       .sort((a, b) => (num(a.day) || 99) - (num(b.day) || 99) || num(b.amount) - num(a.amount))
-      .map((c) => ({ charge: c, kind: chargeEnv(c), paid: tx.find((x) => x.fixedId === c.id) || null, partial: 0, planned: false }));
+      .map((c) => {
+        const f = { charge: c, kind: chargeEnv(c), paid: tx.find((x) => x.fixedId === c.id) || null, partial: 0, planned: false };
+        if (isYearly(c)) { f.yearly = true; f.covered = yearlyCovered(c, month); f.short = round2(num(c.amount) - f.covered); }
+        return f;
+      });
     for (const p of plannedFor(doc, salaryMonth(per))) list.push({ charge: p, kind: 'fixed', paid: tx.find((x) => x.fixedId === p.id) || null, partial: 0, planned: true });
     const pools = {};
     for (const x of inPer) if (!x.fixedId && x.amount < 0 && !x.transfer && (x.env || envOf(x.cat)) === 'fixed') pools[x.cat] = round2((pools[x.cat] || 0) - x.amount);
     for (const f of list) {
-      if (f.paid || f.planned || f.kind !== 'fixed' || !pools[f.charge.cat]) continue;
+      if (f.paid || f.planned || f.yearly || f.kind !== 'fixed' || !pools[f.charge.cat]) continue;
       f.partial = round2(Math.min(num(f.charge.amount), pools[f.charge.cat]));
       pools[f.charge.cat] = round2(pools[f.charge.cat] - f.partial);
     }
@@ -331,13 +349,13 @@
     const p = plan({ ...doc.settings, emergencyFund: emergencyFund(doc), fixedCharges: doc.fixed });
     const per = periodFor(doc, t);
     const spent = { fixed: 0, daily: 0, savings: 0, invest: 0 };
-    const kindOf = Object.fromEntries(live(doc.fixed).map((c) => [c.id, chargeEnv(c)]).concat(live(doc.planned).map((x) => [x.id, 'fixed'])));
+    const kindOf = Object.fromEntries(live(doc.fixed).map((c) => [c.id, isYearly(c) ? 'reserve' : chargeEnv(c)]).concat(live(doc.planned).map((x) => [x.id, 'fixed'])));
     let income = 0;
     for (const x of live(doc.tx)) {
       if (x.date < per.start || x.date > per.end || x.excluded) continue;
       if (x.amount > 0) { if (!x.transfer) income += x.amount; continue; }
       const e = (x.fixedId && kindOf[x.fixedId]) || x.env || envOf(x.cat);
-      if (!e || (x.transfer && e !== 'savings' && e !== 'invest')) continue;
+      if (!e || e === 'reserve' || (x.transfer && e !== 'savings' && e !== 'invest')) continue;
       spent[e] = round2(spent[e] - x.amount);
     }
     const fixed = fixedStatus(doc, per);
@@ -351,13 +369,16 @@
     }
     const salaryIn = per.salaryTx ? per.salaryTx.amount : p.salary;
     const otherIncome = round2(Math.max(0, income - (per.salaryTx ? per.salaryTx.amount : 0)));
-    const fx = fixed.filter((f) => f.kind === 'fixed');
-    const fixedPlanned = round2(fx.reduce((s2, f) => s2 + Math.max(num(f.charge.amount), f.paid ? -f.paid.amount : 0), 0) + (fixed.extra || 0));
-    const fixedPaid = round2(fx.reduce((s2, f) => s2 + (f.paid ? -f.paid.amount : f.partial || 0), 0) + (fixed.extra || 0));
-    const fixedPending = round2(fx.filter((f) => !f.paid).reduce((s2, f) => s2 + num(f.charge.amount) - (f.partial || 0), 0));
     const actual = p.mode === 'actual';
-    const plannedAfter = round2(salaryIn + otherIncome - (actual ? fixedPlanned : p.env.fixed));
-    const after = round2(salaryIn + otherIncome - (actual ? fixedPaid : p.env.fixed));
+    const fx = fixed.filter((f) => f.kind === 'fixed');
+    // une facture annuelle : la réserve en paie « covered », seul le reste touche le mois
+    const own = (f, v) => (f.yearly ? Math.max(0, round2(v - f.covered)) : v);
+    const fixedPlanned = round2(fx.reduce((s2, f) => s2 + own(f, Math.max(num(f.charge.amount), f.paid ? -f.paid.amount : 0)), 0) + (fixed.extra || 0));
+    const fixedPaid = round2(fx.reduce((s2, f) => s2 + (f.paid ? own(f, -f.paid.amount) : f.partial || 0), 0) + (fixed.extra || 0));
+    const fixedPending = round2(fx.filter((f) => !f.paid).reduce((s2, f) => s2 + own(f, num(f.charge.amount)) - (f.partial || 0), 0));
+    const provision = actual ? p.provision : 0;
+    const plannedAfter = round2(salaryIn + otherIncome - (actual ? fixedPlanned + provision : p.env.fixed));
+    const after = round2(salaryIn + otherIncome - (actual ? fixedPaid + provision : p.env.fixed));
     // propositions recalculées sur ce qui reste vraiment : rien à épargner quand il ne reste rien
     const room = Math.max(0, plannedAfter);
     const ratio = (a, b) => (b > 0 ? clamp(a / b, 0, 1) : 0);
@@ -373,7 +394,7 @@
     const pendingOf = (k) => (contract[k] && !checks[k].auto ? round2(Math.max(0, planned[k] - spent[k])) : 0);
     const flow = {
       salaryIn: round2(salaryIn), salaryDate: per.salaryTx ? per.salaryTx.date : null, salaryLabel: per.salaryTx ? per.salaryTx.label : '',
-      otherIncome, fixedPaid: actual ? fixedPaid : p.env.fixed, fixedPlanned: actual ? fixedPlanned : p.env.fixed, after, plannedAfter,
+      otherIncome, provision, fixedPaid: actual ? fixedPaid : p.env.fixed, fixedPlanned: actual ? fixedPlanned : p.env.fixed, after, plannedAfter,
       invest: { planned: planned.invest, deducted: ded('invest'), done: checks.invest.done, contract: contract.invest, pending: pendingOf('invest') },
       savings: { planned: planned.savings, deducted: ded('savings'), done: checks.savings.done, contract: contract.savings, pending: pendingOf('savings') },
       spentDaily: spent.daily,
@@ -412,6 +433,90 @@
   function emergencyFund(doc) {
     const acc = live(doc.accounts).filter((a) => a.kind === 'urgence');
     return acc.length ? round2(acc.reduce((t, a) => t + num(a.balance), 0)) : num(doc.settings && doc.settings.emergencyFund);
+  }
+
+  // ---------- 3e pilier A ----------
+  // Plafond 2026 pour un salarié affilié à une caisse de pension (LPP). Versements reconnus : catégorie Investissement
+  // dont le libellé, ou la charge fixe reliée, parle de 3a / 3e pilier / prestataire 3a.
+  const P3A_MAX = { 2025: 7258, 2026: 7258 };
+  const P3A_RE = /(^| )(3a|3e pilier|pilier 3a|saule 3a|saeule 3a|3 saule|pilastro 3a|terzo pilastro|viac|frankly|finpension|selma 3a|vorsorge 3a|prevoyance)( |$)/;
+  function pillar3a(doc, todayStr) {
+    const t = todayStr || today(), year = +t.slice(0, 4);
+    const max = P3A_MAX[year] || P3A_MAX[2026];
+    const byId = Object.fromEntries(live(doc.fixed).map((c) => [c.id, c]));
+    const is3a = (x) => {
+      const c = x.fixedId && byId[x.fixedId];
+      const text = fold((x.label || '') + ' ' + (x.bankLabel || '') + ' ' + (c ? c.label : '')).replace(/[^a-z0-9]+/g, ' ');
+      return (x.cat === 'invest' || (c && c.cat === 'invest')) && P3A_RE.test(' ' + text + ' ');
+    };
+    const paid = round2(live(doc.tx).filter((x) => x.amount < 0 && !x.excluded && x.date.slice(0, 4) === String(year) && is3a(x)).reduce((s2, x) => s2 - x.amount, 0));
+    // versements encore prévus d'ici au 31 décembre par une charge fixe 3a (ordre permanent)
+    const monthly = live(doc.fixed).filter((c) => c.cat === 'invest' && P3A_RE.test(' ' + fold(c.label).replace(/[^a-z0-9]+/g, ' ') + ' ')).reduce((s2, c) => s2 + monthlyOf(c), 0);
+    const per = periodFor(doc, t);
+    const thisPaid = live(doc.tx).some((x) => x.date >= per.start && x.date <= per.end && x.amount < 0 && is3a(x));
+    const monthsLeft = Math.max(0, 12 - +t.slice(5, 7) + (thisPaid ? 0 : 1));
+    const scheduled = round2(Math.min(Math.max(0, max - paid), monthly * monthsLeft));
+    const left = round2(Math.max(0, max - paid - scheduled));
+    return { year, max, paid, scheduled, left, deadline: year + '-12-31', daysLeft: diffDays(year + '-12-31', t) };
+  }
+
+  // ---------- pistes d'économie ----------
+  // Abonnements repérés : même commerçant, montant stable, au moins deux mois différents.
+  // Les achats de consommation (courses, essence, restos…) ne sont jamais des abonnements, même réguliers.
+  const NOT_SUB = new Set(['courses', 'sorties', 'transport', 'bebe', 'vetements', 'cadeaux', 'maison']);
+  function subscriptions(doc, todayStr) {
+    const t = todayStr || today(), from = addMonths(t, -6);
+    const groups = {};
+    for (const x of live(doc.tx)) {
+      if (!(x.amount < 0) || x.excluded || x.transfer || x.fixedId || x.date < from || x.date > t) continue;
+      const e = x.env || envOf(x.cat);
+      if (e !== 'daily' || NOT_SUB.has(x.cat)) continue;
+      const w = keyWord(x.bankLabel || x.label);
+      if (!w) continue;
+      (groups[w] = groups[w] || []).push(x);
+    }
+    const out = [];
+    for (const [w, xs] of Object.entries(groups)) {
+      const months = new Set(xs.map((x) => x.date.slice(0, 7)));
+      if (months.size < 2 || xs.length > months.size + 1) continue; // un achat répété (Migros) n'est pas un abonnement
+      const amts = xs.map((x) => -x.amount).sort((a, b) => a - b), med = amts[Math.floor(amts.length / 2)];
+      if (amts.some((a) => Math.abs(a - med) > Math.max(1, med * 0.15))) continue;
+      const last = xs.reduce((m, x) => (x.date > m.date ? x : m), xs[0]);
+      out.push({ key: w, label: last.label, cat: last.cat, monthly: round2(med), yearly: round2(med * 12), last: last.date });
+    }
+    return out.sort((a, b) => b.yearly - a.yearly);
+  }
+  // Catégories du quotidien qui dépassent leur moyenne des mois précédents, à rythme égal.
+  function overspend(doc, todayStr) {
+    const st = monthState(doc, todayStr), per = st.period;
+    const cur = Object.fromEntries(dailySeries(doc, per, todayStr).byCat);
+    const prev = [];
+    for (let o = 1; o <= 3; o++) {
+      const pp = periodAt(doc, o, todayStr);
+      const s2 = dailySeries(doc, pp, pp.end);
+      if (s2.byCat.length) prev.push(Object.fromEntries(s2.byCat));
+    }
+    if (!prev.length) return [];
+    const share = per.days > 0 ? Math.min(1, (per.elapsed || 1) / per.days) : 1;
+    const out = [];
+    for (const [cat, v] of Object.entries(cur)) {
+      const avg = round2(prev.reduce((s2, m) => s2 + (m[cat] || 0), 0) / prev.length);
+      const expected = round2(avg * share);
+      // la moyenne du mois entier est déjà dépassée ; ou, passée la première semaine, le rythme l'est nettement
+      if (avg > 0 && v > avg * 1.1 && v - avg >= 40) out.push({ cat, spent: v, avg, expected: avg, whole: true, over: round2(v - avg) });
+      else if (avg > 0 && per.elapsed >= 7 && v > expected * 1.25 && v - expected >= 40) out.push({ cat, spent: v, avg, expected, whole: false, over: round2(v - expected) });
+    }
+    return out.sort((a, b) => b.over - a.over);
+  }
+  // Échéances suisses utiles au budget, selon la date du jour.
+  function swissReminders(todayStr) {
+    const t = todayStr || today(), m = +t.slice(5, 7), y = t.slice(0, 4);
+    const out = [];
+    if (m >= 10 && m <= 11) out.push({ id: 'lamal', until: y + '-11-30', days: diffDays(y + '-11-30', t) });
+    if (m >= 10) out.push({ id: 'p3a', until: y + '-12-31', days: diffDays(y + '-12-31', t) });
+    if (m >= 2 && m <= 3) out.push({ id: 'taxReturn', until: y + '-03-31', days: diffDays(y + '-03-31', t) });
+    if (m === 1) out.push({ id: 'acomptes' });
+    return out;
   }
 
   // ---------- mois par mois ----------
@@ -466,11 +571,15 @@
     const month = start.slice(0, 7);
     const planned = plannedFor(doc, month);
     const plannedSum = round2(planned.reduce((t, x) => t + num(x.amount), 0));
-    const after = round2(p.salary - p.env.fixed - p.env.invest - plannedSum);
+    const mNum = +month.slice(5, 7);
+    const yearly = live(doc.fixed).filter((c) => isYearly(c) && chargeEnv(c) === 'fixed' && num(c.dueMonth) === mNum && num(c.amount) > 0)
+      .map((c) => ({ charge: c, covered: yearlyCovered(c, month), short: round2(num(c.amount) - yearlyCovered(c, month)) }));
+    const yearlyShort = round2(yearly.reduce((t, y) => t + y.short, 0));
+    const after = round2(p.salary - p.env.fixed - p.env.invest - plannedSum - yearlyShort);
     const savings = Math.min(p.env.savings, Math.max(0, after));
     const daily = round2(after - savings);
     const days = diffDays(addDays(addMonths(start, 1), -1), start) + 1;
-    return { start, month, salary: p.salary, fixed: p.env.fixed, invest: p.env.invest, planned, plannedSum, after, savings, daily, days, perDay: daily > 0 ? r05(daily / days) : 0, carry: Math.min(0, st.flow.leftAfterAll) };
+    return { start, month, salary: p.salary, fixed: p.env.fixed, provision: p.provision, yearly, yearlyShort, invest: p.env.invest, planned, plannedSum, after, savings, daily, days, perDay: daily > 0 ? r05(daily / days) : 0, carry: Math.min(0, st.flow.leftAfterAll) };
   }
 
   // ---------- diviser un paiement ----------
@@ -727,7 +836,7 @@
   const F = {
     CATS, CAT_BY_ID, ENVS, PRESETS,
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
-    envOf, chargeEnv, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
+    envOf, chargeEnv, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
     addTx, updateTx, deleteTx, matchFixed, relinkFixed, fixedStatus, plannedFor, dueDate, setCheck,
     monthState, alerts, emergencyFund, history, nextMonth, dailySeries, parseIngest, ingest, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,

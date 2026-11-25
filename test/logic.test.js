@@ -235,3 +235,105 @@ test('la devise écrite après le montant ne reste pas dans le libellé', () => 
   }
   assert.equal(F.parseCommand('Fromagerie 12', { today: '2026-11-25' }).label, 'Fromagerie');
 });
+
+// ---------- factures annuelles, 3e pilier, économies ----------
+function baseDoc() {
+  const d = F.emptyDoc();
+  Object.assign(d.settings, { salary: 6000, payday: 25, canton: 'FR', updatedAt: 1 });
+  d.fixed = [{ id: 'loyer', label: 'Loyer', amount: 1800, cat: 'logement', updatedAt: 1 }];
+  return d;
+}
+
+test('facture annuelle : un douzième réservé chaque mois, rien à payer hors échéance', () => {
+  const d = baseDoc();
+  d.fixed.push({ id: 'serafe', label: 'Serafe', amount: 335, cat: 'logement', freq: 'year', dueMonth: 4, updatedAt: 1 });
+  const st = F.monthState(d, '2026-11-26');
+  assert.equal(st.plan.provision, 27.92);
+  assert.equal(st.flow.provision, 27.92);
+  assert.ok(!st.fixed.some((f) => f.charge.id === 'serafe'), 'pas dans les charges de novembre');
+  assert.equal(st.flow.fixedPending, 1800);
+  assert.equal(st.flow.after, round(6000 - 27.92));
+});
+
+test('facture annuelle au mois d’échéance : la réserve paie, seul le manque compte', () => {
+  const d = baseDoc();
+  // réserve commencée en février : février, mars, avril = 3/12 de 1200
+  d.fixed.push({ id: 'rc', label: 'Assurance ménage RC', amount: 1200, cat: 'assurances', freq: 'year', dueMonth: 4, since: '2026-02', updatedAt: 1 });
+  let st = F.monthState(d, '2026-04-26');
+  const f = st.fixed.find((x) => x.charge.id === 'rc');
+  assert.equal(f.covered, 300); assert.equal(f.short, 900);
+  assert.equal(st.flow.fixedPending, 1800 + 900);
+  F.addTx(d, { date: '2026-04-27', amount: -1200, label: 'Assurance ménage RC', cat: 'assurances', fixedId: 'rc' }, 2);
+  st = F.monthState(d, '2026-04-27');
+  assert.equal(st.flow.fixedPaid, 900, 'seule la part non réservée sort du mois');
+  // l'année suivante, la réserve est pleine : rien ne pèse sur avril
+  st = F.monthState(d, '2027-04-26');
+  assert.equal(st.fixed.find((x) => x.charge.id === 'rc').short, 0);
+});
+
+test('mois prochain : le manque d’une facture annuelle est prévu', () => {
+  const d = baseDoc();
+  d.fixed.push({ id: 'auto', label: 'Assurance voiture', amount: 960, cat: 'assurances', freq: 'year', dueMonth: 12, since: '2026-11', updatedAt: 1 });
+  const n = F.nextMonth(d, '2026-11-26');
+  assert.equal(n.month, '2026-12');
+  assert.equal(n.yearlyShort, 800); // 2/12 réservés (novembre, décembre)
+});
+
+test('3e pilier : versements de l’année, reste jusqu’au plafond', () => {
+  const d = baseDoc();
+  F.addTx(d, { date: '2026-03-10', amount: -2000, label: 'VIAC 3a', cat: 'invest' }, 1);
+  F.addTx(d, { date: '2026-06-10', amount: -1000, label: 'Versement 3e pilier', cat: 'invest' }, 1);
+  F.addTx(d, { date: '2025-12-20', amount: -7258, label: 'VIAC 3a', cat: 'invest' }, 1);
+  F.addTx(d, { date: '2026-06-11', amount: -500, label: 'ETF courtier', cat: 'invest' }, 1);
+  const r = F.pillar3a(d, '2026-11-26');
+  assert.equal(r.max, 7258); assert.equal(r.paid, 3000); assert.equal(r.left, 4258); assert.equal(r.daysLeft, 35);
+});
+
+test('3e pilier : l’ordre permanent restant est compté comme prévu', () => {
+  const d = baseDoc();
+  d.fixed.push({ id: 'p3', label: '3e pilier Swiss Life', amount: 300, cat: 'invest', updatedAt: 1 });
+  const r = F.pillar3a(d, '2026-11-26');
+  assert.equal(r.scheduled, 600); // novembre et décembre pas encore versés
+  assert.equal(r.left, 7258 - 600);
+});
+
+test('abonnements : montant stable sur plusieurs mois, pas les courses', () => {
+  const d = baseDoc();
+  for (const m of ['2026-08', '2026-09', '2026-10', '2026-11']) {
+    F.addTx(d, { date: m + '-05', amount: -22.9, label: 'Netflix', cat: 'loisirs' }, 1);
+    F.addTx(d, { date: m + '-06', amount: -45, label: 'Migros', cat: 'courses' }, 1);
+    F.addTx(d, { date: m + '-16', amount: -80, label: 'Migros', cat: 'courses' }, 1);
+  }
+  const subs = F.subscriptions(d, '2026-11-26');
+  assert.deepEqual(subs.map((x) => x.label), ['Netflix']);
+  assert.equal(subs[0].yearly, 274.8);
+});
+
+test('dépassement : une catégorie au-dessus de sa moyenne à rythme égal', () => {
+  const d = baseDoc();
+  for (const [s, e] of [['2026-08-26', -200], ['2026-09-26', -220], ['2026-10-26', -180]]) F.addTx(d, { date: s, amount: e, label: 'Restaurant', cat: 'sorties' }, 1);
+  F.addTx(d, { date: '2026-11-26', amount: -190, label: 'Restaurant', cat: 'sorties' }, 1);
+  const o = F.overspend(d, '2026-12-03');
+  assert.equal(o[0].cat, 'sorties');
+  assert.ok(o[0].over > 100);
+});
+
+test('rappels suisses : LAMal avant le 30 novembre, 3a avant le 31 décembre', () => {
+  assert.deepEqual(F.swissReminders('2026-11-25').map((r) => r.id), ['lamal', 'p3a']);
+  assert.deepEqual(F.swissReminders('2026-12-05').map((r) => r.id), ['p3a']);
+  assert.deepEqual(F.swissReminders('2027-03-01').map((r) => r.id), ['taxReturn']);
+});
+function round(x) { return Math.round(x * 100) / 100; }
+
+test('dépassement : pas d’alerte au début du mois sur une simple projection', () => {
+  const d = baseDoc();
+  for (const s of ['2026-08-26', '2026-09-26', '2026-10-26']) F.addTx(d, { date: s, amount: -300, label: 'Restaurant', cat: 'sorties' }, 1);
+  F.addTx(d, { date: '2026-11-26', amount: -100, label: 'Restaurant', cat: 'sorties' }, 1);
+  assert.deepEqual(F.overspend(d, '2026-11-27'), []);
+});
+
+test('abonnements : des courses régulières ne sont pas un abonnement', () => {
+  const d = baseDoc();
+  for (const m of ['2026-09', '2026-10', '2026-11']) F.addTx(d, { date: m + '-05', amount: -140, label: 'Migros', cat: 'courses' }, 1);
+  assert.deepEqual(F.subscriptions(d, '2026-11-26'), []);
+});

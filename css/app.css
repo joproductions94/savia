@@ -415,3 +415,10 @@ html, body { overflow-x: clip; }
 .setup { border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--line)); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); display: grid; gap: 10px; }
 .setup h2 { margin: 0; }
 .setup .chips { flex-wrap: wrap; overflow: visible; }
+
+/* charge annuelle : les champs suivent la fréquence choisie */
+#fixForm[data-freq="month"] [data-when="year"], #fixForm[data-freq="year"] [data-when="month"] { display: none; }
+.chips.wrap { flex-wrap: wrap; overflow: visible; }
+.list .num small { display: block; font-size: .7rem; font-weight: 500; text-align: right; }
+.list.wrapmeta .meta, .list.wrapmeta .title { white-space: normal; overflow: visible; text-overflow: clip; }
+.list.wrapmeta .meta { display: block; }

@@ -132,7 +132,7 @@
         </section>`;
       }
       const f = st.flow, per = st.period;
-      const al = F.alerts(d).filter((a) => a.id !== 'short');
+      const al = F.alerts(d).filter((a) => a.id !== 'short').concat(F.swissReminders().map((r) => ({ level: 'info', text: reminderText(r) })).filter((r) => r.text));
       const over = f.left < 0, short = f.leftAfterAll < 0;
       const inTotal = f.salaryIn + f.otherIncome;
       const used = inTotal > 0 ? pct(inTotal - f.left, inTotal) : 100;
@@ -233,13 +233,16 @@
       const d = doc();
       if (!st.plan.salary) return VIEWS.home(st);
       const charges = F.live(d.fixed).filter((c) => +c.amount > 0).sort((a, b) => b.amount - a.amount);
-      const total = charges.reduce((s, c) => s + (+c.amount || 0), 0);
+      const total = charges.reduce((s, c) => s + F.monthlyOf(c), 0);
       return `${nextMonthHtml(st)}
+      ${yearlyHtml(st)}
+      ${pillarHtml()}
+      ${savingsHtml(st)}
       <section>
         <div class="section-head"><h2>${t('plan.chargesTitle')}</h2><button class="link" data-action="new-fixed">${t('fixed.add')}</button></div>
         <div class="card flush">${charges.length ? `<ul class="list">${charges.map((c) => `<li><button class="row" data-action="edit-fixed" data-id="${esc(c.id)}">
-            ${tile(c.cat, F.chargeEnv(c))}<span class="main"><span class="title">${esc(c.label)}</span><span class="meta">${esc(catLabel(c.cat))}${c.day ? ` · ${esc(c.day)}.` : ''}</span></span>
-            <span class="num">${fmt(c.amount)}</span></button></li>`).join('')}</ul>
+            ${tile(c.cat, F.chargeEnv(c))}<span class="main"><span class="title">${esc(c.label)}</span><span class="meta">${esc(catLabel(c.cat))}${F.isYearly(c) ? ` · ${t('fixedd.perYear', { amount: fmt(c.amount), month: esc(monthName(c.dueMonth)) })}` : c.day ? ` · ${esc(c.day)}.` : ''}</span></span>
+            <span class="num">${fmt(F.monthlyOf(c))}</span></button></li>`).join('')}</ul>
           <p class="small" style="text-align:right;padding:4px 0 12px">${t('plan.total', { amount: `<b class="num">${fmt(total)}</b>` })}</p>` : `<p class="empty">${t('fixed.empty')}</p>`}</div>
       </section>
       ${taxCard()}`;
@@ -300,6 +303,7 @@
   };
 
   function alertText(a) {
+    if (a.text) return a.text;
     const p = { ...a };
     if (a.amount != null) p.amount = fmt(a.amount);
     if (a.perDay != null) p.perDay = fmt(a.perDay);
@@ -438,6 +442,7 @@
           ${row('income', f.salaryDate ? t('calc.salary') : t('calc.salaryPlanned'), fmt(f.salaryIn), f.salaryDate ? `${esc(f.salaryLabel)} · ${esc(since)}` : t('calc.salaryFromSettings'))}
           ${f.otherIncome ? row('income', t('calc.other'), fmt(f.otherIncome), t('calc.otherNote')) : ''}
           ${row('fixed', t('calc.fixedPaid'), fmt(-f.fixedPaid), fx.length ? t('calc.fixedNote', { paid, total: fx.length }) + (f.fixedPending ? ' · ' + t('calc.fixedNotPaid', { amount: fmt(f.fixedPending) }) : '') : t('calc.estimate'))}
+          ${f.provision ? row('fixed', t('calc.provision'), fmt(-f.provision), t('calc.provisionNote')) : ''}
           ${row('', t('calc.afterFixed'), fmt(f.after), '', 'sum')}
           ${alloc('invest', t('calc.invest'), invWho, t('checks.invest'))}
           ${alloc('savings', t('calc.savings'), '', t('checks.savings'))}
@@ -496,7 +501,7 @@
     const line = (f0) => {
       const { charge: c, paid: x } = f0;
       const left = (+c.amount || 0) - (f0.partial || 0);
-      const when = x ? t('fixed.paidOn', { date: ds(x.date) }) : f0.planned ? `${t('fixed.plannedTag')} · ${catLabel(c.cat)}` : f0.partial ? t('fixed.partial', { amount: fmt(c.amount, { bare: true }) }) : c.day ? t('fixed.dueOn', { date: ds(F.dueDate(st.period, c.day)) }) : catLabel(c.cat);
+      const when = f0.yearly && !x ? (f0.short > 0 ? t('fixed.yearlyShort', { covered: fmt(f0.covered), short: fmt(f0.short) }) : t('fixed.yearlyCovered')) : x ? t('fixed.paidOn', { date: ds(x.date) }) : f0.planned ? `${t('fixed.plannedTag')} · ${catLabel(c.cat)}` : f0.partial ? t('fixed.partial', { amount: fmt(c.amount, { bare: true }) }) : c.day ? t('fixed.dueOn', { date: ds(F.dueDate(st.period, c.day)) }) : catLabel(c.cat);
       return `<li>
         <button class="row" data-action="${f0.planned ? 'edit-planned' : 'edit-fixed'}" data-id="${esc(c.id)}">
           ${tile(c.cat, 'fixed')}
@@ -555,7 +560,8 @@
       <div class="section-head"><h2 class="cap">${esc(mLong.format(asDate(n.start)))}</h2><span class="sub">${t('next.sub', { date: esc(ds(n.start)) })}</span></div>
       <div class="card calc"><div class="flow">
         ${row('income', t('next.salary'), fmt(n.salary), t('next.salaryNote'))}
-        ${row('fixed', t('next.fixed'), fmt(-n.fixed), t('next.fixedNote', { n: fxCount }))}
+        ${row('fixed', t('next.fixed'), fmt(-n.fixed), t('next.fixedNote', { n: fxCount }) + (n.provision ? ' · ' + t('next.provisionNote', { amount: fmt(n.provision) }) : ''))}
+        ${n.yearly.filter((y) => y.short > 0).map((y) => row('fixed', esc(y.charge.label), fmt(-y.short), t('next.yearlyShort', { amount: fmt(y.charge.amount), covered: fmt(y.covered) }))).join('')}
         ${n.invest ? row('invest', t('calc.invest'), fmt(-n.invest), esc(inv)) : ''}
         ${n.planned.map((x) => `<button class="flow-row" data-action="edit-planned" data-id="${esc(x.id)}"><span class="key" style="--c:var(--fixed)"></span><span>${esc(x.label)}<small>${t('next.plannedNote', { cat: esc(catLabel(x.cat)) })}</small></span><span class="num">${fmt(-x.amount)}</span></button>`).join('')}
         ${row('', t('next.after'), `<span class="${n.after < 0 ? 'neg' : ''}">${fmt(n.after)}</span>`, n.plannedSum ? t('next.afterNote', { amount: fmt(n.plannedSum) }) : '', 'sum')}
@@ -568,23 +574,89 @@
     </section>`;
   }
 
+  const yearlyCat = (label) => { const c = label ? F.categorize(label, doc().settings.learned) : 'autre'; return c === 'autre' || F.envOf(c) === 'daily' && c !== 'transport' ? 'assurances' : c; };
+  const monthName = (m) => mLong.format(new Date(2026, (+m || 1) - 1, 1));
+  // Factures annuelles : ce qui est réservé chaque mois et quand chaque facture tombe.
+  function yearlyHtml(st) {
+    const list = F.live(doc().fixed).filter((c) => F.isYearly(c) && F.chargeEnv(c) === 'fixed' && +c.amount > 0).sort((a, b) => a.dueMonth - b.dueMonth);
+    const chips = t('yearly.items').split('|').map((it) => { const [label, amount] = it.split(':'); return `<button class="chip" data-action="new-yearly" data-label="${esc(label)}" data-amount="${esc(amount || '')}">+ ${esc(label)}</button>`; }).join('');
+    return `<section>
+      <div class="section-head"><h2>${t('yearly.title')}</h2><button class="link" data-action="new-yearly">${t('fixed.add')}</button></div>
+      <div class="card">
+        <p class="small muted" style="margin:0 0 10px">${list.length ? t('yearly.text', { amount: `<b class="num" style="color:var(--ink)">${fmt(st.plan.provision)}</b>` }) : t('yearly.empty')}</p>
+        ${list.length ? `<ul class="list wrapmeta">${list.map((c) => {
+          const due = st.month.slice(0, 4) + '-' + String(c.dueMonth).padStart(2, '0');
+          const target = due >= st.month ? due : (+st.month.slice(0, 4) + 1) + '-' + String(c.dueMonth).padStart(2, '0');
+          const cov = F.yearlyCovered(c, target);
+          return `<li><button class="row" data-action="edit-fixed" data-id="${esc(c.id)}">${tile(c.cat, 'fixed')}<span class="main"><span class="title">${esc(c.label)}</span><span class="meta"><b class="num">${fmt(c.amount)}</b> · ${esc(monthName(c.dueMonth))}${cov < c.amount ? ' · ' + t('yearly.short', { amount: fmt(c.amount - cov) }) : ''}</span></span><span class="num">${fmt(F.monthlyOf(c))}<small class="muted">${t('yearly.perMonth')}</small></span></button></li>`;
+        }).join('')}</ul>` : ''}
+        <div class="chips wrap" style="margin-top:10px">${chips}</div>
+      </div>
+    </section>`;
+  }
+  // 3e pilier A : versé cette année, reste jusqu'au plafond, économie d'impôt si on verse le reste.
+  function pillarInfo() {
+    const r = F.pillar3a(doc());
+    const c = taxCfg(), base = taxInput(c);
+    const already = r.paid + r.scheduled;
+    const now = T.estimate({ ...base, pillar3a: already }), full = T.estimate({ ...base, pillar3a: r.max });
+    return { ...r, saving: Math.max(0, Math.round(now.total - full.total)), savingAll: Math.max(0, Math.round(T.estimate({ ...base, pillar3a: 0 }).total - full.total)) };
+  }
+  function pillarHtml() {
+    if (!doc().settings.salary) return '';
+    const r = pillarInfo();
+    const done = r.paid + r.scheduled;
+    return `<section>
+      <div class="section-head"><h2>${t('p3a.title', { year: r.year })}</h2><span class="sub">${r.daysLeft >= 0 ? t('p3a.deadline', { days: r.daysLeft }) : ''}</span></div>
+      <div class="card">
+        <div class="hero-top" style="margin-bottom:8px"><span class="small">${t('p3a.paid', { paid: `<b class="num">${fmt(r.paid)}</b>`, max: fmt(r.max) })}</span>${r.scheduled ? `<span class="small muted">${t('p3a.scheduled', { amount: fmt(r.scheduled) })}</span>` : ''}</div>
+        <div class="meter" style="--c:var(--invest)"><i style="width:${pct(done, r.max).toFixed(1)}%"></i></div>
+        <p class="small" style="margin:10px 0 0">${r.left > 0 ? t('p3a.left', { amount: `<b class="num">${fmt(r.left)}</b>`, saving: `<b class="num">${fmt(r.saving)}</b>` }) : t('p3a.full', { saving: `<b class="num">${fmt(r.savingAll)}</b>` })}</p>
+        <p class="hint" style="margin:6px 0 10px">${t('p3a.hint')}</p>
+        <button class="btn block" data-action="new-3a">${t('p3a.add')}</button>
+      </div>
+    </section>`;
+  }
+  // Pistes d'économie : échéances suisses, abonnements, catégories qui dépassent leur moyenne.
+  function reminderText(r) {
+    if (r.id === 'p3a') { const p = pillarInfo(); return p.left > 0 ? t('rem.p3a', { amount: fmt(p.left), saving: fmt(p.saving), days: r.days }) : ''; }
+    return t('rem.' + r.id, { days: r.days });
+  }
+  function savingsHtml(st) {
+    const d = doc();
+    const rem = F.swissReminders().filter((r) => r.id !== 'p3a').map(reminderText).filter(Boolean);
+    const subs = F.subscriptions(d);
+    const over = F.overspend(d);
+    if (!rem.length && !subs.length && !over.length) return '';
+    const subTotal = subs.reduce((s, x) => s + x.yearly, 0);
+    return `<section>
+      <div class="section-head"><h2>${t('save.title')}</h2></div>
+      <div class="card">
+        ${rem.length ? `<div class="notes">${rem.map((x) => `<div class="note info">${esc(x)}</div>`).join('')}</div>` : ''}
+        ${over.length ? `<div class="group-label">${t('save.over')}</div><ul class="list wrapmeta">${over.slice(0, 4).map((o) => `<li>${tile(o.cat, 'daily')}<span class="main"><span class="title">${esc(catLabel(o.cat))}</span><span class="meta">${t(o.whole ? 'save.overMonth' : 'save.overMeta', { spent: fmt(o.spent), usual: fmt(o.expected) })}</span></span><span class="num neg">+${fmt(o.over, { bare: true })}</span></li>`).join('')}</ul>` : ''}
+        ${subs.length ? `<div class="group-label">${t('save.subs', { amount: fmt(subTotal) })}</div><ul class="list wrapmeta">${subs.slice(0, 6).map((x) => `<li>${tile(x.cat, 'daily')}<span class="main"><span class="title">${esc(x.label)}</span><span class="meta">${t('save.subMeta', { amount: fmt(x.monthly) })}</span></span><span class="num">${fmt(x.yearly)}<small class="muted">${t('save.perYear')}</small></span></li>`).join('')}</ul><p class="hint">${t('save.subsHint')}</p>` : ''}
+      </div>
+    </section>`;
+  }
+
   // ---------- impôts ----------
-  const TAX_DEFAULT = { status: 'single', children: 0, salaries: 12, other: 0, communeCoef: null, parishCoef: 0, pillar3a: 0, alimony: null, childcare: null, cantonalOverride: 0 };
+  const TAX_DEFAULT = { status: 'single', children: 0, salaries: 12, other: 0, communeCoef: null, parishCoef: 0, pillar3a: null, alimony: null, childcare: null, cantonalOverride: 0 };
   const taxCfg = () => ({ ...TAX_DEFAULT, ...(doc().settings.tax || {}) });
-  const fixedYear = (cat) => F.live(doc().fixed).filter((c) => c.cat === cat).reduce((s, c) => s + (+c.amount || 0), 0) * 12;
+  const fixedYear = (cat) => F.live(doc().fixed).filter((c) => c.cat === cat).reduce((s, c) => s + F.monthlyOf(c), 0) * 12;
+  const p3aAuto = () => { const r = F.pillar3a(doc()); return r.paid + r.scheduled; };
   function taxInput(c) {
     return {
       salaryNet: (+doc().settings.salary || 0) * (+c.salaries || 12), other: +c.other || 0, status: c.status, children: +c.children || 0,
       alimony: c.alimony == null || c.alimony === '' ? fixedYear('pension') : +c.alimony,
       childcare: c.childcare == null || c.childcare === '' ? fixedYear('garde') : +c.childcare,
-      pillar3a: +c.pillar3a || 0, canton: doc().settings.canton || 'FR', communeCoef: c.communeCoef, parishCoef: +c.parishCoef || 0, cantonalOverride: +c.cantonalOverride || 0,
+      pillar3a: c.pillar3a == null || c.pillar3a === '' ? p3aAuto() : +c.pillar3a, canton: doc().settings.canton || 'FR', communeCoef: c.communeCoef, parishCoef: +c.parishCoef || 0, cantonalOverride: +c.cantonalOverride || 0,
     };
   }
   const taxCharges = () => F.live(doc().fixed).filter((c) => c.cat === 'impots');
   function taxCard() {
     if (!doc().settings.salary) return '';
     const r = T.estimate(taxInput(taxCfg()));
-    const planned = taxCharges().reduce((s, c) => s + (+c.amount || 0), 0);
+    const planned = taxCharges().reduce((s, c) => s + F.monthlyOf(c), 0);
     return `<section>
       <div class="section-head"><h2>${t('tax.title', { year: new Date().getFullYear() })}</h2>${S.isPro() ? '' : `<span class="pill beta">Pro</span>`}</div>
       <button class="tax-card" data-action="tax">${tile('impots', 'fixed')}
@@ -608,7 +680,7 @@
   }
   function readTax(fd) {
     const n = (k) => { const x = String(fd.get(k) == null ? '' : fd.get(k)).trim(); return x === '' ? null : F.parseAmount(x) || 0; };
-    return { status: fd.get('status'), children: n('children') || 0, salaries: +fd.get('salaries') || 12, other: n('other') || 0, alimony: n('alimony'), childcare: n('childcare'), communeCoef: n('communeCoef'), parishCoef: n('parishCoef') || 0, pillar3a: n('pillar3a') || 0, cantonalOverride: n('cantonalOverride') || 0 };
+    return { status: fd.get('status'), children: n('children') || 0, salaries: +fd.get('salaries') || 12, other: n('other') || 0, alimony: n('alimony'), childcare: n('childcare'), communeCoef: n('communeCoef'), parishCoef: n('parishCoef') || 0, pillar3a: n('pillar3a'), cantonalOverride: n('cantonalOverride') || 0 };
   }
   function taxDialog() {
     const c = taxCfg(), canton = doc().settings.canton || 'FR', supported = !!T.CANTONS[canton];
@@ -630,7 +702,7 @@
           <label class="field">${t('tax.commune')}<input name="communeCoef" inputmode="decimal" value="${v(c.communeCoef)}" placeholder="${T.CANTONS[canton].communeDefault}"></label>
           <label class="field">${t('tax.parish')}<input name="parishCoef" inputmode="decimal" value="${v(c.parishCoef || '')}" placeholder="${esc(t('tax.parishPh'))}"></label>
         </div>` : `<label class="field">${t('tax.override')}<input name="cantonalOverride" inputmode="decimal" value="${v(c.cantonalOverride || '')}" placeholder="0"></label>`}
-        <label class="field">${t('tax.p3a')}<input name="pillar3a" inputmode="decimal" value="${v(c.pillar3a || '')}" placeholder="0"></label>
+        <label class="field">${t('tax.p3a')}<input name="pillar3a" inputmode="decimal" value="${v(c.pillar3a)}" placeholder="${esc(fmt(p3aAuto(), { bare: true }))}"></label>
         <p class="hint">${t('tax.hint')}</p>
         <div id="taxOut">${taxBreakdown(c)}</div>
       </div>`,
@@ -736,9 +808,9 @@
       <div class="seg kind"><label class="k-exp"><input type="radio" name="kind" value="expense" ${!isIncome ? 'checked' : ''}>${t('txd.expense')}</label><label class="k-inc"><input type="radio" name="kind" value="income" ${isIncome ? 'checked' : ''}>${t('txd.income')}</label></div>
       <label class="amount-field"><span class="sr">${t('txd.amount')}</span><span class="cur">CHF</span><input name="amount" inputmode="decimal" placeholder="0.00" value="${existing ? esc(Math.abs(existing.amount)) : ''}" autocomplete="off" aria-label="${esc(t('txd.amount'))}"></label>
       ${existing ? '' : `<button type="button" class="btn dictate" data-dictate><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg><span>${t('txd.dictate')}</span></button><p class="hint" id="dictHint">${t('txd.dictateHint')}</p>`}
-      <label class="field">${t('txd.label')}<input name="label" value="${esc(existing ? existing.label : '')}" autocomplete="off"></label>
+      <label class="field">${t('txd.label')}<input name="label" value="${esc(existing ? existing.label : x.label || '')}" autocomplete="off"></label>
       <label class="field">${t('txd.date')}<input name="date" type="date" value="${esc(existing ? existing.date : F.today())}"></label>
-      <div class="grid2"><label class="field">${t('txd.cat')}<select name="cat">${catOptions(existing ? existing.cat : isIncome ? 'revenu' : 'autre')}</select></label>
+      <div class="grid2"><label class="field">${t('txd.cat')}<select name="cat" ${!existing && x.cat ? 'data-chosen="1"' : ''}>${catOptions(existing ? existing.cat : x.cat || (isIncome ? 'revenu' : 'autre'))}</select></label>
       <label class="field">${t('txd.account')}<select name="accountId">${accOpts}</select></label></div>
       <label class="check"><input type="checkbox" name="excluded" ${existing && existing.excluded ? 'checked' : ''}>${t('txd.excluded')}</label>
       <label class="check"><input type="checkbox" name="transfer" ${existing && existing.transfer ? 'checked' : ''}>${t('txd.transfer')}</label>
@@ -766,6 +838,7 @@
   // Dans la feuille de saisie : la catégorie suit le libellé tant qu'on ne l'a pas choisie ; la dictée remplit tout.
   document.addEventListener('input', (ev) => {
     const fx = ev.target.closest('#fixForm');
+    if (fx && ev.target.name === 'freq') { fx.dataset.freq = ev.target.value; return; }
     if (fx) {
       if (ev.target.name === 'cat') ev.target.dataset.chosen = '1';
       else if (ev.target.name === 'label') {
@@ -840,11 +913,14 @@
   }
 
   function fixedDialog(c) {
-    const d = doc(), existing = c && c.id ? c : null;
-    openDialog(existing ? t('fixedd.edit') : t('fixedd.new'), `<div class="form" id="fixForm">
+    const d = doc(), existing = c && c.id ? c : null, yearly = !!(c && c.freq === 'year');
+    openDialog(existing ? t('fixedd.edit') : t('fixedd.new'), `<div class="form" id="fixForm" data-freq="${yearly ? 'year' : 'month'}">
       <label class="field">${t('fixedd.label')}<input name="label" value="${esc(c ? c.label || '' : '')}" autocomplete="off"></label>
-      <div class="grid2"><label class="field">${t('fixedd.amount')}<input name="amount" inputmode="decimal" value="${esc(existing ? existing.amount : '')}" autocomplete="off"></label>
-      <label class="field">${t('fixedd.day')}<input name="day" type="number" min="1" max="31" value="${esc(existing && existing.day ? existing.day : '')}"></label></div>
+      <div class="seg kind freq"><label><input type="radio" name="freq" value="month" ${yearly ? '' : 'checked'}>${t('fixedd.monthly')}</label><label><input type="radio" name="freq" value="year" ${yearly ? 'checked' : ''}>${t('fixedd.yearly')}</label></div>
+      <div class="grid2"><label class="field"><span data-when="month">${t('fixedd.amount')}</span><span data-when="year">${t('fixedd.amountYear')}</span><input name="amount" inputmode="decimal" value="${esc(c && c.amount ? c.amount : '')}" autocomplete="off"></label>
+      <label class="field" data-when="month">${t('fixedd.day')}<input name="day" type="number" min="1" max="31" value="${esc(existing && existing.day ? existing.day : '')}"></label>
+      <label class="field" data-when="year">${t('fixedd.dueMonth')}<select name="dueMonth">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${+(c && c.dueMonth) === i + 1 ? 'selected' : ''}>${esc(monthName(i + 1))}</option>`).join('')}</select></label></div>
+      <p class="hint" data-when="year">${t('fixedd.yearHint')}</p>
       <label class="field">${t('txd.cat')}<select name="cat" ${c && c.cat ? 'data-chosen="1"' : ''}>${catOptions(c && c.cat ? c.cat : 'logement')}</select></label>
       <p class="hint">${t('fixedd.hint')}</p></div>`,
     `${existing ? `<button class="btn danger" value="delete">${t('dlg.delete')}</button>` : ''}<button class="btn primary" value="save">${t('dlg.save')}</button>`,
@@ -853,7 +929,10 @@
       if (action === 'delete') { Object.assign(existing, { deleted: true, updatedAt: now }); save(); return; }
       const label = String(fd.get('label') || '').trim(), amount = F.parseAmount(fd.get('amount'));
       if (!label || !(amount > 0)) { toast(t('fixedd.err')); return true; }
-      const data = { label, amount, cat: fd.get('cat'), day: +fd.get('day') || null, updatedAt: now };
+      const year = fd.get('freq') === 'year';
+      const data = { label, amount, cat: fd.get('cat'), day: year ? null : +fd.get('day') || null, freq: year ? 'year' : 'month', dueMonth: year ? +fd.get('dueMonth') : null, updatedAt: now };
+      // la réserve commence le mois où la facture annuelle est saisie
+      if (year && !(existing && existing.freq === 'year' && existing.since)) data.since = F.monthState(d).month;
       if (existing) Object.assign(existing, data); else d.fixed.push({ id: F.uid(), ...data });
       F.relinkFixed(d);
       save();
@@ -1003,6 +1082,8 @@
     'edit-tx': (el) => { const x = doc().tx.find((y) => y.id === el.dataset.id && !y.deleted); if (x) txDialog(x); },
     'new-tx': () => txDialog({ kind: 'expense' }),
     'new-income': () => txDialog({ kind: 'income' }),
+    'new-3a': () => txDialog({ kind: 'expense', label: t('p3a.label'), cat: 'invest' }),
+    'new-yearly': (el) => fixedDialog({ freq: 'year', label: (el && el.dataset.label) || '', amount: (el && el.dataset.amount) || '', cat: yearlyCat(el && el.dataset.label), dueMonth: 1 }),
     'make-key': async () => { try { ui.ingestKey = await S.createIngestKey(); render(); } catch (e) { toast(t('wallet.keyErr')); } },
     'new-fixed': (el) => fixedDialog(el && el.dataset.label ? { label: el.dataset.label, cat: el.dataset.cat } : null),
     'edit-fixed': (el) => { const c = F.live(doc().fixed).find((x) => x.id === el.dataset.id); if (c) fixedDialog(c); },
