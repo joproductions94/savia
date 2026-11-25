@@ -717,7 +717,7 @@
     if (!file || !pendingImport) return;
     const buf = await file.arrayBuffer();
     let text = new TextDecoder('utf-8').decode(buf);
-    if (text.includes('�')) text = new TextDecoder('windows-1252').decode(buf);
+    if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buf);
     const res = F.parseStatement(text);
     if (!res.ok) { toast(t('imp.err.' + res.error)); return; }
     previewImport(pendingImport.accountId, F.reconcile(doc(), pendingImport.accountId, res.rows));
