@@ -1,0 +1,11 @@
+{
+  "name": "franko",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Franko — budget familial suisse",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "serve": "node scripts/serve.js"
+  }
+}
