@@ -92,3 +92,6 @@ td.r, th.r { text-align: right; }
 @media (max-width: 860px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi .value { font-size: 1.3rem; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.pill.comp { background: color-mix(in srgb, var(--s2) 16%, transparent); color: var(--s2); }
+.btn.small { min-height: 30px; padding: 0 10px; font-size: .8rem; border-radius: 8px; }
+td.r .btn.small { white-space: nowrap; }

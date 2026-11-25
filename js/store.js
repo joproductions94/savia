@@ -17,13 +17,14 @@
   let rev = ls.get(REVKEY, 0);
   let status = cloud && session ? 'ok' : 'local';
   let plan = { tier: cfg.billing ? 'free' : 'beta', until: null };
+  let admin = !!(session && ls.get('franko.admin', false)), adminChecked = false;
   let listeners = [], timer = null, running = false, again = false, lastIngest = null;
 
   function normalize(d) {
     const e = F.emptyDoc();
     if (!d || !d.settings) return e;
     const out = { ...e, ...d, v: 2, settings: { ...e.settings, ...d.settings } };
-    for (const k of ['accounts', 'fixed', 'checks', 'planned', 'tx']) out[k] = Array.isArray(d[k]) ? d[k] : [];
+    for (const k of ['accounts', 'fixed', 'checks', 'planned', 'goals', 'tx']) out[k] = Array.isArray(d[k]) ? d[k] : [];
     return out;
   }
   const emit = () => listeners.forEach((fn) => { try { fn(); } catch (e) { /* une vue ne doit pas bloquer les autres */ } });
@@ -67,7 +68,7 @@
     const r = await api('/auth/v1/otp', { method: 'POST', body: JSON.stringify({ email, create_user: true, options: { emailRedirectTo: root.location.origin + root.location.pathname } }) });
     if (!r.ok) throw new Error('send');
   }
-  function signOutLocal() { session = null; ls.del(SKEY); ls.del(REVKEY); rev = 0; plan = { tier: cfg.billing ? 'free' : 'beta' }; setStatus('local'); }
+  function signOutLocal() { session = null; ls.del(SKEY); ls.del(REVKEY); ls.del('franko.admin'); admin = false; adminChecked = false; rev = 0; plan = { tier: cfg.billing ? 'free' : 'beta' }; setStatus('local'); }
   async function signOut() { try { if (session) await api('/auth/v1/logout', { method: 'POST' }); } catch (e) { /* déconnexion locale quand même */ } signOutLocal(); }
 
   async function pull() {
@@ -130,13 +131,23 @@
     if (!r.ok) throw new Error('key');
     return r.json();
   }
+  // Administrateur : décidé par le serveur (secret ADMIN_EMAILS), vérifié une fois par session.
+  async function checkAdmin() {
+    if (adminChecked) return;
+    try {
+      const r = await api('/functions/v1/admin', { method: 'POST', body: JSON.stringify({ action: 'me' }) });
+      if (r.ok) { admin = !!(await r.json()).admin; adminChecked = true; ls.set('franko.admin', admin); }
+    } catch (e) { /* hors ligne : garde la dernière réponse */ }
+  }
   async function loadPlan() {
+    await checkAdmin();
+    if (admin) { plan = { tier: 'pro', comp: true, owner: true }; return; } // le propriétaire ne paie pas
     if (!cfg.billing) { plan = { tier: 'beta' }; return; }
     try {
-      const r = await api('/rest/v1/subscriptions?select=status,current_period_end', { headers: { Accept: 'application/json' } });
+      const r = await api('/rest/v1/subscriptions?select=status,current_period_end,comp', { headers: { Accept: 'application/json' } });
       const rows = r.ok ? await r.json() : [];
       const s = rows[0];
-      plan = s && (s.status === 'active' || s.status === 'trialing') ? { tier: 'pro', until: s.current_period_end } : { tier: 'free' };
+      plan = s && s.comp ? { tier: 'pro', comp: true } : s && (s.status === 'active' || s.status === 'trialing') ? { tier: 'pro', until: s.current_period_end } : { tier: 'free' };
     } catch (e) { /* garde le plan connu */ }
   }
   async function billing(action, interval) {
@@ -160,6 +171,7 @@
     get doc() { return doc; }, get status() { return status; }, get session() { return session; }, get cloud() { return cloud; },
     get plan() { return plan; }, get config() { return cfg; },
     isPro: () => plan.tier === 'pro' || plan.tier === 'beta',
+    isAdmin: () => !!session && admin,
     on(fn) { listeners.push(fn); },
     ui: { get: (k, d) => ls.get('franko.ui.' + k, d), set: (k, v) => ls.set('franko.ui.' + k, v) },
     persistent: ls.set('franko.probe', 1),

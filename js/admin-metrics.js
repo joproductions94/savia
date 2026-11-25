@@ -38,11 +38,13 @@
 
     // --- situation actuelle (table subscriptions, qui fait foi) ---
     let mrr = 0;
-    const count = { active: 0, trialing: 0, past_due: 0, canceled: 0, free: 0 };
+    const count = { active: 0, trialing: 0, past_due: 0, canceled: 0, free: 0, comp: 0 };
+    const isOwner = (u) => (data.admins || []).includes(String(u.email || '').toLowerCase());
     const intervals = { month: 0, year: 0 };
     for (const u of users) {
       const s = subBy.get(u.id);
-      const st = s && s.status && s.status !== 'none' ? s.status : 'free';
+      let st = s && s.status && s.status !== 'none' ? s.status : 'free';
+      if ((s && s.comp || isOwner(u)) && st !== 'active' && st !== 'trialing') st = 'comp';
       if (st === 'active') { mrr += monthly(s.price_interval, s.amount_chf, prices); intervals[s.price_interval === 'year' ? 'year' : 'month']++; }
       if (st in count) count[st]++; else if (st === 'unpaid' || st === 'incomplete' || st === 'incomplete_expired') count.past_due++; else count.free++;
     }
@@ -103,8 +105,11 @@
     const rows = users.map((u) => {
       const s = subBy.get(u.id) || {};
       const a = actBy.get(u.id) || {};
-      const status = s.status && s.status !== 'none' ? s.status : 'free';
+      let status = s.status && s.status !== 'none' ? s.status : 'free';
+      const owner = isOwner(u);
+      if ((s.comp || owner) && status !== 'active' && status !== 'trialing') status = 'comp';
       return {
+        comp: !!s.comp, owner, compNote: s.comp_note || null,
         id: u.id, email: u.email || '', created_at: u.created_at, last_seen: [a.updated_at, u.last_sign_in_at].filter(Boolean).sort().pop() || null,
         status, interval: s.price_interval || null, mrr: status === 'active' ? r2(monthly(s.price_interval, s.amount_chf, prices)) : 0,
         renews: s.current_period_end || null, trial_end: s.trial_end || null, canceled_at: s.canceled_at || null, lang: a.lang || null, canton: a.canton || null,
@@ -116,7 +121,7 @@
     return {
       now, kpi: {
         mrr, arr: r2(mrr * 12), mrrPrev: before.mrr, mrrDelta: r2(mrr - before.mrr), paying, payingPrev: before.paying,
-        trialing: count.trialing, pastDue: count.past_due, canceled: count.canceled, free: count.free, users: users.length,
+        trialing: count.trialing, pastDue: count.past_due, canceled: count.canceled, free: count.free, comp: count.comp, users: users.length,
         new30, newPrev30, active30, arpu, ltv, churnRate: r2(churnRate * 100), churned30: churned.length, churnedMrr, newPaid30: newPaid.length,
         trialConversion: trialEnds.length ? Math.round((converted / trialEnds.length) * 100) : null, trialEnded90: trialEnds.length,
         paidShare: users.length ? Math.round((paying / users.length) * 100) : 0,
@@ -156,7 +161,11 @@
         subscriptions.push({ user_id: id, status, price_interval: interval, amount_chf: amount, created_at: new Date(t0).toISOString(), trial_end: new Date(tEnd).toISOString(), current_period_end: new Date(now + Math.floor(rnd() * 30) * DAY).toISOString(), canceled_at: status === 'canceled' ? new Date(now - rnd() * 90 * DAY).toISOString() : null });
       }
     }
-    return { generatedAt: new Date(now).toISOString(), sample: true, users, subscriptions, events, activity };
+    // le compte propriétaire et quelques Pro offerts (famille, testeurs)
+    users.unshift({ id: 'owner', email: 'proprietaire@exemple.ch', created_at: new Date(now - 330 * DAY).toISOString(), last_sign_in_at: new Date(now - DAY).toISOString() });
+    activity.push({ user_id: 'owner', updated_at: new Date(now - 3600e3).toISOString(), lang: 'fr', canton: 'FR' });
+    for (const i of [3, 17, 41]) { const id = 'u' + i; const s0 = subscriptions.find((x) => x.user_id === id); if (s0) Object.assign(s0, { comp: true, comp_note: 'Testeur' }); else subscriptions.push({ user_id: id, status: 'none', comp: true, comp_note: 'Famille' }); }
+    return { generatedAt: new Date(now).toISOString(), sample: true, admins: ['proprietaire@exemple.ch'], users, subscriptions, events, activity };
   }
 
   const M = { compute, monthly, mrrAt, sample };

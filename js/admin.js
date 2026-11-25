@@ -10,10 +10,10 @@
   const mFmt = new Intl.DateTimeFormat('fr-CH', { month: 'short', timeZone: 'UTC' });
   const mLong = new Intl.DateTimeFormat('fr-CH', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const day = (s) => (s ? dFmt.format(new Date(s)) : '—');
-  const STATUS = { active: 'Payant', trialing: 'Essai', past_due: 'Impayé', canceled: 'Résilié', free: 'Gratuit' };
+  const STATUS = { active: 'Payant', trialing: 'Essai', past_due: 'Impayé', canceled: 'Résilié', comp: 'Pro offert', free: 'Gratuit' };
   const prices = { month: +(S.config.priceMonth || 4.9), year: +(S.config.priceYear || 49) };
   const view = { q: '', status: 'all', sort: 'created_at', dir: -1, page: 0 };
-  let R = null, raw = null;
+  let R = null, raw = null, mode = 'sample';
 
   // ---------- chargement ----------
   async function load() {
@@ -46,7 +46,8 @@
   function message(title, text) { $('#root').innerHTML = `<div class="card login"><h1 style="font-size:1.3rem">${esc(title)}</h1><p class="muted">${text}</p></div>`; }
 
   // ---------- rendu ----------
-  function show(mode) {
+  function show(m) {
+    mode = m;
     R = M.compute(raw, { prices });
     const k = R.kpi;
     $('#stamp').textContent = (mode === 'sample' ? 'Exemple · ' : 'Mis à jour ') + new Date(raw.generatedAt).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' });
@@ -63,7 +64,7 @@
         ${kpi('Revenu annuel (ARR)', money(k.arr, 0), 'CHF', `<span class="small muted">MRR × 12</span>`)}
         ${kpi('Abonnés payants', k.paying, '', delta(k.paying - k.payingPrev))}
         ${kpi('En essai', k.trialing, '', `<span class="small muted">${k.trialConversion == null ? 'conversion : pas encore de recul' : `${k.trialConversion} % convertis (90 j)`}</span>`)}
-        ${kpi('Utilisateurs', k.users, '', `<span class="small muted">+${k.new30} sur 30 j · ${k.paidShare} % payants</span>`)}
+        ${kpi('Utilisateurs', k.users, '', `<span class="small muted">+${k.new30} sur 30 j · ${k.paidShare} % payants · ${k.comp} Pro offert(s)</span>`)}
         ${kpi('Actifs sur 30 jours', k.active30, '', `<span class="small muted">${k.users ? Math.round((k.active30 / k.users) * 100) : 0} % des comptes</span>`)}
         ${kpi('Résiliations (30 j)', `${k.churnRate}`, '%', `<span class="small muted">${k.churned30} client(s) · −${money(k.churnedMrr)} CHF MRR</span>`)}
         ${kpi('Revenu moyen par client (ARPU)', money(k.arpu), 'CHF/mois')}
@@ -88,7 +89,7 @@
       <section>
         <div class="card"><div class="card-head"><h2>Clients</h2><span class="sub" id="countRows"></span></div>
           <div class="tools"><input type="search" id="q" placeholder="Rechercher un e-mail" aria-label="Rechercher un e-mail" value="${esc(view.q)}">
-            ${['all', 'active', 'trialing', 'past_due', 'canceled', 'free'].map((s) => `<button class="chip" data-status="${s}" aria-pressed="${view.status === s}">${s === 'all' ? 'Tous' : STATUS[s]}</button>`).join('')}</div>
+            ${['all', 'active', 'trialing', 'past_due', 'canceled', 'comp', 'free'].map((s) => `<button class="chip" data-status="${s}" aria-pressed="${view.status === s}">${s === 'all' ? 'Tous' : STATUS[s]}</button>`).join('')}</div>
           <div class="table" id="tbl"></div></div>
       </section>`;
     lineChart($('#chMrr'), R.months.map((m) => ({ x: m.month, y: m.mrr, tip: `<b>${mLong.format(new Date(m.month + '-01T00:00:00Z'))}</b><br>MRR ${money(m.mrr)} CHF<br>${m.paying} abonné(s)` })));
@@ -98,8 +99,8 @@
   }
 
   function statusBlock() {
-    const order = ['active', 'trialing', 'past_due', 'canceled', 'free'];
-    const col = { active: 'var(--good)', trialing: 'var(--s1)', past_due: 'var(--warn)', canceled: 'var(--bad)', free: 'var(--faint)' };
+    const order = ['active', 'trialing', 'past_due', 'canceled', 'comp', 'free'];
+    const col = { active: 'var(--good)', trialing: 'var(--s1)', past_due: 'var(--warn)', canceled: 'var(--bad)', comp: 'var(--s2)', free: 'var(--faint)' };
     const n = Object.fromEntries(R.statuses);
     const total = R.rows.length || 1;
     return `<div class="seg" role="img" aria-label="Répartition des statuts">${order.filter((s) => n[s]).map((s) => `<i style="flex:${n[s]};background:${col[s]}" title="${STATUS[s]} : ${n[s]}"></i>`).join('')}</div>
@@ -137,11 +138,34 @@
     const rows = list.slice(view.page * per, view.page * per + per);
     const th = (key, label, cls) => `<th scope="col" class="${cls || ''}"><button data-sort="${key}">${label}${view.sort === key ? (view.dir < 0 ? ' ↓' : ' ↑') : ''}</button></th>`;
     $('#countRows').textContent = `${list.length} sur ${R.rows.length}`;
-    $('#tbl').innerHTML = `<table><thead><tr>${th('email', 'E-mail')}${th('status', 'Statut')}${th('interval', 'Formule')}${th('mrr', 'MRR', 'r')}${th('created_at', 'Inscription')}${th('last_seen', 'Dernière activité')}${th('renews', 'Échéance')}${th('canton', 'Canton')}</tr></thead>
+    $('#tbl').innerHTML = `<table><thead><tr>${th('email', 'E-mail')}${th('status', 'Statut')}${th('interval', 'Formule')}${th('mrr', 'MRR', 'r')}${th('created_at', 'Inscription')}${th('last_seen', 'Dernière activité')}${th('renews', 'Échéance')}${th('canton', 'Canton')}<th scope="col" class="r">Pro offert</th></tr></thead>
       <tbody>${rows.map((r) => `<tr><td>${esc(r.email)}</td><td><span class="pill ${r.status in STATUS ? r.status : 'free'}">${STATUS[r.status] || esc(r.status)}</span></td>
       <td>${r.interval === 'year' ? 'Annuel' : r.interval === 'month' ? 'Mensuel' : '—'}</td><td class="r num">${r.mrr ? money(r.mrr) : '—'}</td><td>${day(r.created_at)}</td><td>${day(r.last_seen)}</td>
-      <td>${r.status === 'trialing' ? 'fin d’essai ' + day(r.trial_end) : r.status === 'active' || r.status === 'past_due' ? day(r.renews) : '—'}</td><td>${esc(r.canton || '—')}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">Aucun client ne correspond.</td></tr>'}</tbody></table>
+      <td>${r.status === 'trialing' ? 'fin d’essai ' + day(r.trial_end) : r.status === 'active' || r.status === 'past_due' ? day(r.renews) : '—'}</td><td>${esc(r.canton || '—')}</td><td class="r">${compCell(r)}</td></tr>`).join('') || '<tr><td colspan="9" class="muted">Aucun client ne correspond.</td></tr>'}</tbody></table>
       <div class="pager"><span>Page ${view.page + 1} / ${pages}</span><span><button class="btn" data-page="-1" ${view.page === 0 ? 'disabled' : ''}>Précédent</button> <button class="btn" data-page="1" ${view.page >= pages - 1 ? 'disabled' : ''}>Suivant</button></span></div>`;
+  }
+
+  function compCell(r) {
+    if (r.owner) return '<span class="small muted">propriétaire</span>';
+    const note = r.compNote ? `<span class="small muted">${esc(r.compNote)}</span> ` : '';
+    return r.comp ? `${note}<button class="btn small" data-comp="${esc(r.id)}" data-on="0">Retirer</button>` : `<button class="btn small" data-comp="${esc(r.id)}" data-on="1">Offrir Pro</button>`;
+  }
+  async function setComp(id, on) {
+    const row = R.rows.find((x) => x.id === id);
+    if (!row) return;
+    let note = '';
+    if (on) { note = prompt(`Offrir Pro à ${row.email} ? Note facultative (famille, testeur…)`, ''); if (note === null) return; }
+    else if (!confirm(`Retirer le Pro offert à ${row.email} ?`)) return;
+    if (mode === 'sample') { // exemple : modifie seulement les données affichées
+      const s0 = raw.subscriptions.find((x) => x.user_id === id);
+      if (s0) Object.assign(s0, { comp: on, comp_note: on ? note || null : null }); else raw.subscriptions.push({ user_id: id, status: 'none', comp: on, comp_note: note || null });
+      return show('sample');
+    }
+    try {
+      const r = await fetch(S.config.supabaseUrl + '/functions/v1/admin', { method: 'POST', headers: { apikey: S.config.supabaseAnonKey, Authorization: 'Bearer ' + S.session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'comp', userId: id, on, note }) });
+      if (!r.ok) throw new Error(String(r.status));
+      await load();
+    } catch (e) { alert('Modification impossible pour le moment.'); }
   }
 
   // ---------- graphiques (SVG, une seule échelle, survol avec info-bulle) ----------
@@ -215,6 +239,8 @@
     if (st) { view.status = st.dataset.status; view.page = 0; document.querySelectorAll('[data-status]').forEach((b) => b.setAttribute('aria-pressed', b === st)); table(); return; }
     const so = ev.target.closest('[data-sort]');
     if (so) { const k = so.dataset.sort; view.dir = view.sort === k ? -view.dir : k === 'email' ? 1 : -1; view.sort = k; table(); return; }
+    const cp = ev.target.closest('[data-comp]');
+    if (cp) { setComp(cp.dataset.comp, cp.dataset.on === '1'); return; }
     const pg = ev.target.closest('[data-page]');
     if (pg) { view.page += +pg.dataset.page; table(); }
   });

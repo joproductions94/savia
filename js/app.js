@@ -1078,13 +1078,16 @@
   // ---------- compte et abonnement ----------
   function accountHtml() {
     const cfg = S.config, sess = S.session;
-    const planLine = S.plan.tier === 'beta' ? `<p class="hint"><span class="pill beta">Bêta</span> ${t('plan.beta')}</p>`
+    const planLine = S.plan.comp ? `<p class="hint"><span class="pill ok">Pro</span> ${t(S.plan.owner ? 'plan.owner' : 'plan.comp')}</p>`
+      : S.plan.tier === 'beta' ? `<p class="hint"><span class="pill beta">Bêta</span> ${t('plan.beta')}</p>`
       : `<p class="small">${t('plan.' + S.plan.tier)}${S.plan.tier === 'free' ? ` · ${t('plan.price', { month: cfg.priceMonth, year: cfg.priceYear })}` : ''}</p>`;
     let auth;
     if (!S.cloud) auth = `<p class="hint">${t('auth.local')} ${t('auth.unavailable')}</p>`;
-    else if (sess) auth = `<p class="small">${t('auth.signedIn', { email: esc(sess.email || '') })}</p><div class="row-btns">${S.plan.tier === 'free' ? `<button class="btn primary" data-action="upgrade" data-i="month">${t('plan.upgrade')}</button>` : S.plan.tier === 'pro' ? `<button class="btn" data-action="manage-billing">${t('plan.manage')}</button>` : ''}<button class="btn" data-action="sign-out">${t('auth.signOut')}</button></div>`;
+    else if (sess) auth = `<p class="small">${t('auth.signedIn', { email: esc(sess.email || '') })}</p><div class="row-btns">${S.plan.tier === 'free' ? `<button class="btn primary" data-action="upgrade" data-i="month">${t('plan.upgrade')}</button>` : S.plan.tier === 'pro' && !S.plan.comp ? `<button class="btn" data-action="manage-billing">${t('plan.manage')}</button>` : ''}<button class="btn" data-action="sign-out">${t('auth.signOut')}</button></div>`;
     else auth = `<p class="hint">${t('auth.local')}</p><form id="signIn" class="form"><label class="field">${t('auth.email')}<input name="email" type="email" autocomplete="email" required></label><button class="btn primary block">${t('auth.send')}</button></form>`;
-    return `<section class="card form"><h2>${t('set.account')}</h2>${planLine}${auth}</section>`;
+    // le propriétaire (secret ADMIN_EMAILS, vérifié par le serveur) retrouve ici son tableau de bord
+    const adminLink = S.isAdmin() ? `<a class="btn primary block" href="admin.html">${svg('invest')}${t('admin.open')}</a>` : '';
+    return `<section class="card form"><h2>${t('set.account')}</h2>${planLine}${adminLink}${auth}</section>`;
   }
   // Fonction Pro : ouvre directement en bêta, sinon explique l'abonnement.
   function requirePro(feature, fn) {

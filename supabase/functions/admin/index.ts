@@ -1,5 +1,8 @@
 // Franko — données du tableau de bord administrateur.
 // Réservé aux adresses listées dans le secret ADMIN_EMAILS (séparées par des virgules).
+// Actions : { action: 'me' } dit à tout utilisateur connecté s'il est administrateur (l'app affiche alors Pro et le lien
+// du tableau de bord) ; { action: 'comp', userId, on, note } offre ou retire Pro (administrateurs seulement) ;
+// sans action : les données du tableau de bord.
 // Renvoie le strict nécessaire : comptes (e-mail, dates), abonnements, historique, dernière activité, langue et canton.
 // Aucune donnée budgétaire (salaire, mouvements) ne sort d'ici.
 // Déployer : supabase functions deploy admin --no-verify-jwt (le jeton est vérifié ici, avec la liste d'administrateurs).
@@ -36,15 +39,29 @@ Deno.serve(async (req) => {
   if (!r.ok) return json({ error: 'auth' }, 401);
   const me = await r.json();
   const admins = env('ADMIN_EMAILS').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-  if (!me.email || !admins.includes(String(me.email).toLowerCase())) return json({ error: 'forbidden' }, 403);
+  const isAdmin = !!me.email && admins.includes(String(me.email).toLowerCase());
+  let body: { action?: string; userId?: string; on?: boolean; note?: string } = {};
+  try { body = await req.json(); } catch { /* corps vide : données du tableau de bord */ }
+  if (body.action === 'me') return json({ admin: isAdmin });
+  if (!isAdmin) return json({ error: 'forbidden' }, 403);
+  if (body.action === 'comp') {
+    if (!body.userId || !/^[0-9a-f-]{36}$/i.test(body.userId)) return json({ error: 'user' }, 400);
+    const on = body.on !== false;
+    const row = { user_id: body.userId, comp: on, comp_note: on ? String(body.note ?? '').slice(0, 200) || null : null, comp_by: on ? me.email : null, comp_at: on ? new Date().toISOString() : null };
+    const w = await fetch(env('SUPABASE_URL') + '/rest/v1/subscriptions?on_conflict=user_id', {
+      method: 'POST', headers: { ...service, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row),
+    });
+    if (!w.ok) { console.error('comp', w.status, await w.text()); return json({ error: 'write' }, 500); }
+    return json({ ok: true, comp: on });
+  }
   try {
     const [users, subscriptions, events, activity] = await Promise.all([
       allUsers(),
-      rest('subscriptions?select=user_id,status,price_interval,amount_chf,current_period_end,trial_end,canceled_at,created_at'),
+      rest('subscriptions?select=user_id,status,price_interval,amount_chf,current_period_end,trial_end,canceled_at,created_at,comp,comp_note,comp_at'),
       rest('subscription_events?select=user_id,status,previous_status,price_interval,amount_chf,at&order=at.asc&limit=50000'),
       rest('budget_docs?select=user_id,updated_at,lang:doc->settings->>lang,canton:doc->settings->>canton'),
     ]);
-    return json({ generatedAt: new Date().toISOString(), users, subscriptions, events, activity });
+    return json({ generatedAt: new Date().toISOString(), me: me.email, admins, users, subscriptions, events, activity });
   } catch (e) {
     console.error(e);
     return json({ error: 'query' }, 500);

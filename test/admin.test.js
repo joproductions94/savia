@@ -40,6 +40,22 @@ test('données d’exemple : cohérentes et marquées', () => {
   const s = M.sample(now);
   assert.strictEqual(s.sample, true);
   const r = M.compute(s, { now });
-  assert.ok(r.kpi.users === 260 && r.kpi.paying > 20 && r.kpi.mrr > 0);
+  assert.ok(r.kpi.users === 261 && r.kpi.paying > 20 && r.kpi.mrr > 0);
   assert.ok(r.months.every((m) => m.mrr >= 0));
+});
+
+test('Pro offert : statut à part, jamais compté dans le MRR ; le propriétaire est reconnu', () => {
+  const now = Date.parse('2026-11-27T12:00:00Z');
+  const data = {
+    generatedAt: new Date(now).toISOString(), admins: ['moi@exemple.ch'],
+    users: [{ id: 'a', email: 'moi@exemple.ch', created_at: '2026-01-01' }, { id: 'b', email: 'soeur@exemple.ch', created_at: '2026-02-01' }, { id: 'c', email: 'client@exemple.ch', created_at: '2026-03-01' }],
+    subscriptions: [{ user_id: 'b', status: 'none', comp: true, comp_note: 'Famille' }, { user_id: 'c', status: 'active', price_interval: 'month', amount_chf: 4.9 }],
+    events: [{ user_id: 'c', status: 'active', previous_status: 'trialing', price_interval: 'month', amount_chf: 4.9, at: '2026-04-01T00:00:00Z' }], activity: [],
+  };
+  const r = M.compute(data, { prices: { month: 4.9, year: 49 } });
+  assert.equal(r.kpi.comp, 2);
+  assert.equal(r.kpi.paying, 1); assert.equal(r.kpi.mrr, 4.9);
+  const by = Object.fromEntries(r.rows.map((x) => [x.email, x]));
+  assert.equal(by['moi@exemple.ch'].status, 'comp'); assert.equal(by['moi@exemple.ch'].owner, true);
+  assert.equal(by['soeur@exemple.ch'].status, 'comp'); assert.equal(by['soeur@exemple.ch'].compNote, 'Famille');
 });
