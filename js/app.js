@@ -49,6 +49,8 @@
     epargne: '<ellipse cx="12" cy="6.5" rx="6.5" ry="2.5"/><path d="M5.5 6.5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5M5.5 11.5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5"/>',
     invest: '<path d="M4 17l5-5 3.5 3.5L20 8M15 8h5v5"/>',
     revenu: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"/>',
+    dons: '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>',
+    qr: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2"/>',
     autre: '<circle cx="6.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="17.5" cy="12" r="1.2"/>',
     wallet: '<path d="M4 7.5A2.5 2.5 0 016.5 5H18v3M4 7.5V17a2 2 0 002 2h14V9H6.5A2.5 2.5 0 014 7.5z"/><circle cx="16" cy="14" r="1.2"/>',
     bank: '<path d="M3.5 9.5L12 4.5l8.5 5M5 10v7.5M9.5 10v7.5M14.5 10v7.5M19 10v7.5M3.5 20h17"/>',
@@ -161,6 +163,7 @@
           <div><dt>${t('home.pending')}</dt><dd class="num">${fmt(f.pending, { bare: true })}</dd></div>
         </dl>
       </section>
+      ${forecastHtml()}
       ${bonusHtml(st)}
       ${al.length ? `<section><div class="section-head"><h2>${t('home.watch')}</h2></div><div class="card notes">${al.map((a) => `<div class="note ${a.level}">${esc(alertText(a))}</div>`).join('')}</div></section>` : ''}
       ${paceHtml(st)}
@@ -226,6 +229,7 @@
       <section class="stack-v">
         <button class="btn primary block" data-action="import">${svg('revenu')}${t('tx.import')}</button>
         <div class="row-btns"><button class="btn" data-action="new-tx">${t('tx.newExpense')}</button><button class="btn" data-action="new-income">${t('tx.newIncome')}</button></div>
+        <button class="btn block" data-action="scan-bill">${svg('qr')}${t('qr.scan')}</button>
         <button class="btn block" data-action="export-csv">${t('tx.export')}</button>
       </section>
       ${reviewHtml()}`;
@@ -248,7 +252,8 @@
             <span class="num">${fmt(F.monthlyOf(c))}</span></button></li>`).join('')}</ul>
           <p class="small" style="text-align:right;padding:4px 0 12px">${t('plan.total', { amount: `<b class="num">${fmt(total)}</b>` })}</p>` : `<p class="empty">${t('fixed.empty')}</p>`}</div>
       </section>
-      ${taxCard()}`;
+      ${taxCard()}
+      ${dossierCard()}`;
     },
 
     settings() {
@@ -448,6 +453,174 @@
       if (action === 'delete' || !(v > 0)) delete lim[cat]; else lim[cat] = Math.round(v * 100) / 100;
       setting({ limits: lim });
     });
+  }
+
+  // ---------- prévision du solde jusqu'au prochain salaire ----------
+  function forecastHtml() {
+    const fc = F.forecast(doc());
+    if (fc.points.length < 2) return '';
+    const W = 320, H = 92, pad = 6;
+    const vals = fc.points.map((x) => x.balance).concat([fc.start, 0]);
+    const max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
+    const X = (i) => pad + (i / (fc.points.length - 1)) * (W - pad * 2);
+    const Y = (v) => pad + ((max - v) / span) * (H - pad * 2);
+    const line = fc.points.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x.balance).toFixed(1)}`).join(' ');
+    const lowI = fc.points.findIndex((x) => x.date === fc.low.date);
+    const neg = !!fc.firstNegative;
+    const src = t(fc.fromAccounts ? 'fc.srcAccount' : 'fc.srcLeft');
+    const tip = (x) => `${ds(x.date)} · ${fmt(x.balance)}${x.events.length ? '<br>' + x.events.map((e) => `${esc(e.label)} ${fmt(e.amount)}`).join('<br>') : ''}`;
+    const dots = fc.points.map((x, i) => (x.events.length ? `<circle class="ev" cx="${X(i).toFixed(1)}" cy="${Y(x.balance).toFixed(1)}" r="3.2"/>` : '')).join('');
+    const hits = fc.points.map((x, i) => `<rect x="${(X(i) - (W - pad * 2) / fc.points.length / 2).toFixed(1)}" y="0" width="${((W - pad * 2) / fc.points.length).toFixed(1)}" height="${H}" fill="transparent" data-tip="${esc(tip(x))}"/>`).join('');
+    const next = fc.events.filter((e) => !e.undated).slice(0, 3);
+    return `<section>
+      <div class="section-head"><h2>${t('fc.title')}</h2><span class="sub">${t('fc.until', { date: esc(ds(fc.until)) })}</span></div>
+      <div class="card forecast ${neg ? 'is-neg' : ''}">
+        <div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(t('fc.aria', { low: fmt(fc.low.balance), date: ds(fc.low.date) }))}">
+          <line class="zero" x1="${pad}" x2="${W - pad}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}"/>
+          <path class="area" d="${line} L${X(fc.points.length - 1).toFixed(1)} ${Y(Math.max(min, Math.min(0, max))).toFixed(1)} L${X(0).toFixed(1)} ${Y(Math.max(min, Math.min(0, max))).toFixed(1)} Z"/>
+          <path class="line" d="${line}"/>${dots}
+          <circle class="low" cx="${X(lowI).toFixed(1)}" cy="${Y(fc.low.balance).toFixed(1)}" r="4.5"/>${hits}
+        </svg></div>
+        ${neg ? `<p class="note danger">${t('fc.negative', { date: esc(ds(fc.firstNegative.date)), src, amount: fmt(fc.firstNegative.balance), cause: esc(fc.firstNegative.cause || t('fc.daily')) })} ${fc.cutPerDay < fc.perDay * 0.7 ? t('fc.advice', { cut: fmt(fc.cutPerDay) }) : t('fc.adviceShort', { amount: fmt(-fc.low.balance) })}</p>`
+          : `<p class="small" style="margin:6px 0 0">${t('fc.ok', { low: `<b class="num">${fmt(fc.low.balance)}</b>`, date: esc(ds(fc.low.date)), end: `<b class="num">${fmt(fc.end)}</b>` })}</p>`}
+        <p class="hint" style="margin:4px 0 0">${t('fc.how', { src, perDay: fmt(fc.perDay) })}${fc.fromAccounts ? ` <button class="link" data-action="tab" data-tab="settings">${t('fc.balance', { amount: fmt(fc.start) })}</button>` : ''}</p>
+        ${next.length ? `<ul class="fc-events">${next.map((e) => `<li><span>${esc(ds(e.date))}</span><span>${esc(e.label)}</span><b class="num">${fmt(e.amount)}</b></li>`).join('')}</ul>` : ''}
+      </div>
+    </section>`;
+  }
+
+  // ---------- factures QR suisses ----------
+  let jsqrLoading = null;
+  const loadJsQR = () => jsqrLoading || (jsqrLoading = new Promise((ok, ko) => {
+    if (window.jsQR) return ok(window.jsQR);
+    const sc = document.createElement('script');
+    sc.src = 'js/vendor/jsQR.js'; sc.onload = () => ok(window.jsQR); sc.onerror = () => { jsqrLoading = null; ko(new Error('jsqr')); };
+    document.head.appendChild(sc);
+  }));
+  function decodeImage(src, jsQR) {
+    const max = 1400, c = document.createElement('canvas');
+    const k = Math.min(1, max / Math.max(src.width || src.videoWidth, src.height || src.videoHeight));
+    c.width = Math.round((src.width || src.videoWidth) * k); c.height = Math.round((src.height || src.videoHeight) * k);
+    if (!c.width || !c.height) return null;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(src, 0, 0, c.width, c.height);
+    const img = g.getImageData(0, 0, c.width, c.height);
+    const r = jsQR(img.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
+    return r ? r.data : null;
+  }
+  function scanDialog() {
+    let stream = null, raf = 0, done = false;
+    const stop = () => { done = true; cancelAnimationFrame(raf); if (stream) stream.getTracks().forEach((tr) => tr.stop()); stream = null; };
+    openDialog(t('qr.title'), `<div class="form scan">
+      <div class="scan-view" id="scanView"><video id="scanVideo" playsinline muted></video><span class="scan-frame" aria-hidden="true"></span><p class="scan-msg" id="scanMsg">${t('qr.starting')}</p></div>
+      <label class="btn block file-btn">${svg('qr')}<span>${t('qr.photo')}</span><input type="file" accept="image/*" id="scanFile" hidden></label>
+      <p class="hint">${t('qr.hint')}</p></div>`,
+    `<button class="btn" value="close" type="button" data-close>${t('dlg.close')}</button>`, () => {});
+    dlg.addEventListener('close', stop, { once: true });
+    const msg = (k, cls) => { const m = $('#scanMsg'); if (m) { m.textContent = t(k); m.className = 'scan-msg ' + (cls || ''); } };
+    const found = (text) => {
+      const bill = F.parseQrBill(text);
+      if (!bill.ok) { msg('qr.err.' + bill.error, 'err'); return false; }
+      stop(); dlg.close();
+      const pl = F.billToPlanned(doc(), bill);
+      if (pl.dup) { toast(t('qr.dup', { label: pl.dup.label })); plannedDialog(pl.dup); return true; }
+      plannedDialog({ label: pl.label, amount: pl.amount || '', cat: pl.cat, month: pl.month, qr: pl.qr });
+      return true;
+    };
+    loadJsQR().then((jsQR) => {
+      $('#scanFile').addEventListener('change', (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        const im = new Image();
+        im.onload = () => { const r = decodeImage(im, jsQR); URL.revokeObjectURL(im.src); if (!r) msg('qr.notFound', 'err'); else found(r); };
+        im.onerror = () => msg('qr.notFound', 'err');
+        im.src = URL.createObjectURL(file);
+      });
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { msg('qr.noCamera'); $('#scanView').classList.add('off'); return; }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false }).then((st) => {
+        if (done) { st.getTracks().forEach((tr) => tr.stop()); return; }
+        stream = st;
+        const v = $('#scanVideo'); v.srcObject = st; v.play().catch(() => {});
+        msg('qr.aim');
+        let last = 0;
+        const tick = (ts) => {
+          if (done) return;
+          if (ts - last > 180 && v.readyState >= 2) { last = ts; const r = decodeImage(v, jsQR); if (r && found(r)) return; }
+          raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+      }).catch(() => { msg('qr.noCamera'); $('#scanView').classList.add('off'); });
+    }).catch(() => msg('qr.loadErr', 'err'));
+  }
+
+  // ---------- dossier pour la déclaration d'impôts ----------
+  const dossierYear = () => { const n = new Date(); return n.getMonth() < 6 ? n.getFullYear() - 1 : n.getFullYear(); };
+  const DOSSIER_ITEMS = ['p3a', 'childcare', 'alimony', 'health', 'donations', 'training', 'interest'];
+  function dossierBody(r) {
+    const it = r.items;
+    const line = (k) => {
+      const x = it[k];
+      if (!x.total && k !== 'p3a') return '';
+      const note = k === 'p3a' ? t('dos.p3aNote', { max: fmt(x.max) }) : k === 'health' ? t('dos.healthNote', { threshold: fmt(x.threshold), deductible: fmt(x.deductible) }) : k === 'donations' ? t('dos.donNote', { deductible: fmt(x.deductible) }) : t('dos.n', { n: x.list.length });
+      return row(k === 'p3a' ? 'invest' : 'fixed', t('dos.' + k), fmt(x.total), note);
+    };
+    const any = DOSSIER_ITEMS.some((k) => it[k].total);
+    return `<div class="flow">
+      ${r.income.total <= 0 ? '' : row('income', t('dos.income'), fmt(r.income.total), t('dos.incomeNote', { n: r.income.salaries, bonus: r.income.bonus ? ' · ' + t('dos.bonus', { amount: fmt(r.income.bonus) }) : '' }))}
+      ${DOSSIER_ITEMS.map(line).join('')}
+    </div>${any ? '' : `<p class="hint">${t('dos.empty')}</p>`}<p class="hint" style="margin-top:8px">${t('dos.hint')}</p>`;
+  }
+  function dossierDialog(year) {
+    const y = year || dossierYear();
+    const r = F.taxDossier(doc(), y);
+    const years = [new Date().getFullYear() - 1, new Date().getFullYear()];
+    openDialog(t('dos.title', { year: y }), `<div class="form">
+      <div class="seg kind">${years.map((yy) => `<label><input type="radio" name="year" value="${yy}" ${yy === y ? 'checked' : ''} data-dossier-year>${yy}</label>`).join('')}</div>
+      ${dossierBody(r)}</div>`,
+    `<button class="btn" value="csv">${t('dos.csv')}</button><button class="btn primary" value="print">${t('dos.print')}</button>`,
+    (action) => {
+      if (action === 'csv') { download(`franko-impots-${y}.csv`, dossierCsv(r), 'text/csv;charset=utf-8'); return true; }
+      if (action === 'print') { printDossier(r); return true; }
+    });
+  }
+  function dossierCsv(r) {
+    const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows = [['Rubrique', 'Date', 'Libellé', 'Montant CHF'].map(q).join(';')];
+    for (const k of DOSSIER_ITEMS) for (const x of r.items[k].list) rows.push([t('dos.' + k), x.date, x.label, x.amount.toFixed(2)].map(q).join(';'));
+    return '\ufeff' + rows.join('\r\n');
+  }
+  function printDossier(r) {
+    const d = doc(), s0 = d.settings;
+    const sec = (k) => {
+      const x = r.items[k];
+      if (!x.list.length) return '';
+      const extra = k === 'health' ? `<p>${esc(t('dos.healthNote', { threshold: fmt(x.threshold), deductible: fmt(x.deductible) }))}</p>` : k === 'donations' ? `<p>${esc(t('dos.donNote', { deductible: fmt(x.deductible) }))}</p>` : k === 'p3a' ? `<p>${esc(t('dos.p3aNote', { max: fmt(x.max) }))}</p>` : '';
+      return `<h2>${esc(t('dos.' + k))} <span>${esc(fmt(x.total))}</span></h2>${extra}<table><thead><tr><th>${esc(t('txd.date'))}</th><th>${esc(t('txd.label'))}</th><th class="n">CHF</th></tr></thead><tbody>${x.list.map((y) => `<tr><td>${esc(ds(y.date))}</td><td>${esc(y.label)}</td><td class="n">${esc(fmt(y.amount, { bare: true }))}</td></tr>`).join('')}</tbody></table>`;
+    };
+    const html = `<!doctype html><html lang="${esc(I.lang)}"><head><meta charset="utf-8"><title>${esc(t('dos.title', { year: r.year }))}</title><style>
+      body{font:13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14211f;margin:28px;max-width:760px}h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;margin:22px 0 6px;display:flex;justify-content:space-between;border-bottom:1.5px solid #14211f;padding-bottom:3px}
+      .meta{color:#5b6b68;margin:0 0 14px}table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1px solid #e3e8e6;text-align:left}th{font-size:11px;text-transform:uppercase;color:#5b6b68}.n{text-align:right;font-variant-numeric:tabular-nums}
+      .sum td{font-weight:700}p{margin:4px 0;color:#3c4a47}.foot{margin-top:28px;font-size:11px;color:#5b6b68}@media print{body{margin:12mm}button{display:none}}</style></head><body>
+      <button onclick="print()" style="float:right;padding:8px 14px;border-radius:8px;border:1px solid #0d5c57;background:#0d5c57;color:#fff;font-weight:600">${esc(t('dos.print'))}</button>
+      <h1>${esc(t('dos.title', { year: r.year }))}</h1><p class="meta">${esc(t('dos.meta', { canton: s0.canton || 'FR', date: ds(F.today()) }))}</p>
+      <table><tbody><tr class="sum"><td>${esc(t('dos.income'))}</td><td class="n">${esc(fmt(r.income.total))}</td></tr>
+      ${DOSSIER_ITEMS.filter((k) => r.items[k].total).map((k) => `<tr><td>${esc(t('dos.' + k))}</td><td class="n">${esc(fmt(r.items[k].total))}</td></tr>`).join('')}</tbody></table>
+      ${DOSSIER_ITEMS.map(sec).join('')}<p class="foot">${esc(t('dos.hint'))}</p></body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) { download(`franko-impots-${r.year}.html`, html, 'text/html;charset=utf-8'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+  function dossierCard() {
+    if (!doc().settings.salary) return '';
+    const y = dossierYear(), r = F.taxDossier(doc(), y);
+    const total = DOSSIER_ITEMS.reduce((a, k) => a + (k === 'health' ? r.items.health.deductible : k === 'donations' ? r.items.donations.deductible : r.items[k].total), 0);
+    return `<section>
+      <div class="section-head"><h2>${t('dos.cardTitle')}</h2>${S.isPro() ? '' : `<span class="pill beta">Pro</span>`}</div>
+      <button class="tax-card" data-action="dossier">${tile('impots', 'fixed')}
+        <span class="main"><span class="eyebrow">${t('dos.cardEyebrow', { year: y })}</span><span class="big">${bigAmount(total)}</span>
+        <span class="small muted">${t('dos.cardText')}</span></span>
+      </button>
+    </section>`;
   }
 
   // 13e salaire, prime : proposer d'en mettre une part de côté avant qu'elle ne fonde dans le quotidien
@@ -715,14 +888,14 @@
         ${row('fixed', t('next.fixed'), fmt(-n.fixed), t('next.fixedNote', { n: fxCount }) + (n.provision ? ' · ' + t('next.provisionNote', { amount: fmt(n.provision) }) : ''))}
         ${n.yearly.filter((y) => y.short > 0).map((y) => row('fixed', esc(y.charge.label), fmt(-y.short), t('next.yearlyShort', { amount: fmt(y.charge.amount), covered: fmt(y.covered) }))).join('')}
         ${n.invest ? row('invest', t('calc.invest'), fmt(-n.invest), esc(inv)) : ''}
-        ${n.planned.map((x) => `<button class="flow-row" data-action="edit-planned" data-id="${esc(x.id)}"><span class="key" style="--c:var(--fixed)"></span><span>${esc(x.label)}<small>${t('next.plannedNote', { cat: esc(catLabel(x.cat)) })}</small></span><span class="num">${fmt(-x.amount)}</span></button>`).join('')}
+        ${n.planned.map((x) => `<button class="flow-row" data-action="edit-planned" data-id="${esc(x.id)}"><span class="key" style="--c:var(--fixed)"></span><span>${esc(x.label)}<small>${x.qr ? t('qr.tag') + (x.qr.due ? ' · ' + t('qr.due', { date: esc(ds(x.qr.due)) }) : '') : t('next.plannedNote', { cat: esc(catLabel(x.cat)) })}</small></span><span class="num">${fmt(-x.amount)}</span></button>`).join('')}
         ${row('', t('next.after'), `<span class="${n.after < 0 ? 'neg' : ''}">${fmt(n.after)}</span>`, n.plannedSum ? t('next.afterNote', { amount: fmt(n.plannedSum) }) : '', 'sum')}
         ${row('savings', t('next.savings'), fmt(-n.savings), n.savings ? t('next.savingsNote') : t('next.savingsNone'))}
         ${row('', t('next.daily'), `<span class="${n.daily < 0 ? 'neg' : ''}">${fmt(n.daily)}</span>`, n.daily > 0 ? t('next.dailyNote', { amount: fmt(n.perDay), days: n.days }) : '', 'total')}
       </div>
       ${goalGap(n)}
       ${n.carry < 0 ? `<p class="bank-line"><span>${t('next.carry', { amount: `<b class="neg num">${fmt(n.carry)}</b>` })}</span></p>` : ''}
-      <button class="btn block" data-action="new-planned" data-month="${esc(n.month)}">${t('next.add')}</button>
+      <div class="row-btns"><button class="btn" data-action="new-planned" data-month="${esc(n.month)}">${t('next.add')}</button><button class="btn" data-action="scan-bill">${svg('qr')}${t('qr.scan')}</button></div>
       </div>
     </section>`;
   }
@@ -1010,6 +1183,7 @@
       sel.value = income ? 'revenu' : F.categorize(f.querySelector('[name=label]').value, doc().settings.learned);
     }
   });
+  document.addEventListener('change', (ev) => { if (ev.target.matches('[data-dossier-year]')) { dlg.close(); dossierDialog(+ev.target.value); } });
   document.addEventListener('change', (ev) => { if (ev.target.name === 'kind' && ev.target.closest('#txForm')) ev.target.dispatchEvent(new Event('input', { bubbles: true })); });
   function fillFromSpeech(f, text) {
     const kind = f.querySelector('[name=kind]:checked').value;
@@ -1079,7 +1253,11 @@
     `${existing ? `<button class="btn danger" value="delete">${t('dlg.delete')}</button>` : ''}<button class="btn primary" value="save">${t('dlg.save')}</button>`,
     (action, fd) => {
       const now = Date.now();
-      if (action === 'delete') { Object.assign(existing, { deleted: true, updatedAt: now }); save(); return; }
+      if (action === 'delete') {
+        Object.assign(existing, { deleted: true, updatedAt: now }); save();
+        toast(t('fixed.deleted', { label: existing.label }), [{ label: t('undo'), fn: () => { Object.assign(existing, { deleted: false, updatedAt: Date.now() }); save(); } }]);
+        return;
+      }
       const label = String(fd.get('label') || '').trim(), amount = F.parseAmount(fd.get('amount'));
       if (!label || !(amount > 0)) { toast(t('fixedd.err')); return true; }
       const year = fd.get('freq') === 'year';
@@ -1096,8 +1274,11 @@
     const d = doc(), per = F.periodFor(d, F.today());
     const nextStart = F.addDays(per.end, 1);
     const months = [per.start, nextStart, F.addMonths(nextStart, 1), F.addMonths(nextStart, 2)].map((m) => m.slice(0, 7));
+    if (x.month && !months.includes(x.month)) months.push(x.month);
     const isNew = !x.id;
-    openDialog(isNew ? t('planned.title') : t('planned.edit'), `<div class="form">
+    const qr = x.qr;
+    openDialog(isNew ? (qr ? t('qr.newTitle') : t('planned.title')) : t('planned.edit'), `<div class="form">
+      ${qr ? `<div class="qr-card">${tile('qr', 'fixed')}<div><b>${esc(qr.creditor || '')}</b>${qr.city ? ` · ${esc(qr.city)}` : ''}<small>${esc(qr.iban.replace(/(.{4})/g, '$1 ').trim())}${qr.ref ? ` · ${t('qr.ref')} ${esc(qr.ref.slice(-8))}` : ''}${qr.due ? ` · ${t('qr.due', { date: esc(ds(qr.due)) })}` : ''}</small></div></div>` : ''}
       <label class="field">${t('planned.what')}<input name="label" value="${esc(x.label || '')}" placeholder="${esc(t('planned.whatPh'))}" autocomplete="off"></label>
       <div class="grid2"><label class="field">${t('txd.amount')}<input name="amount" inputmode="decimal" value="${esc(x.amount || '')}" placeholder="0.00" autocomplete="off"></label>
       <label class="field">${t('planned.month')}<select name="month">${months.map((m, i) => `<option value="${m}" ${m === (x.month || months[1]) ? 'selected' : ''}>${esc(mLong.format(asDate(m)))}${i === 0 ? ' ' + t('planned.current') : ''}</option>`).join('')}</select></label></div>
@@ -1112,6 +1293,7 @@
       let cat = fd.get('cat');
       if (cat === 'autre') cat = F.categorize(label, d.settings.learned);
       const data = { label, amount, cat, month: fd.get('month'), updatedAt: now };
+      if (qr) data.qr = qr;
       if (isNew) d.planned.push({ id: F.uid(), ...data }); else Object.assign(x, data);
       save(); toast(t('planned.saved', { label, amount: fmt(amount), month: mLong.format(asDate(data.month)) }));
     });
@@ -1236,6 +1418,8 @@
     'new-tx': () => txDialog({ kind: 'expense' }),
     'new-income': () => txDialog({ kind: 'income' }),
     limit: (el) => limitDialog(el.dataset.cat),
+    'scan-bill': () => scanDialog(),
+    dossier: () => requirePro('dossier', () => dossierDialog()),
     'bonus-save': (el) => {
       const amt = Math.round(+el.dataset.amount || 0);
       if (!(amt > 0)) return;

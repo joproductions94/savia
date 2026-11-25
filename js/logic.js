@@ -81,6 +81,7 @@
     { id: 'vetements', env: 'daily', kw: ['vetement', 'habits', 'chaussures', 'h&m', 'zara', 'c&a', 'zalando', 'kleider', 'schuhe', 'vestiti', 'scarpe', 'clothes', 'ropa'] },
     { id: 'maison', env: 'daily', kw: ['ikea', 'meuble', 'bricolage', 'jumbo', 'hornbach', 'obi', 'do it', 'pfister', 'conforama', 'galaxus', 'digitec', 'interdiscount', 'fust', 'media markt', 'mediamarkt', 'mobel', 'mobili', 'household'] },
     { id: 'cadeaux', env: 'daily', kw: ['cadeau', 'anniversaire', 'geschenk', 'geburtstag', 'regalo', 'compleanno', 'gift', 'birthday'] },
+    { id: 'dons', env: 'daily', kw: ['dons', 'caritas', 'unicef', 'croix rouge', 'rotes kreuz', 'croce rossa', 'msf', 'medecins sans frontieres', 'terre des hommes', 'pro juventute', 'pro senectute', 'chaine du bonheur', 'gluckskette', 'catena della solidarieta', 'wwf', 'greenpeace', 'amnesty', 'heks', 'fastenaktion', 'swissaid', 'helvetas', 'spende', 'spenden', 'donazione', 'donation'] },
     { id: 'epargne', env: 'savings', kw: ['epargne', 'fonds d urgence', 'sparen', 'sparkonto', 'risparmio', 'savings', 'ahorro'] },
     { id: 'invest', env: 'invest', kw: ['investissement', '3e pilier', 'pilier 3a', '3a', 'swisslife', 'swiss life', 'viac', 'frankly', 'finpension', 'truewealth', 'selma', 'saeule 3a', 'vorsorge', 'pilastro', 'investimento', 'etf', 'invest'] },
     { id: 'revenu', env: null, income: true, kw: ['salaire', 'lohn', 'gehalt', 'salario', 'stipendio', 'salary', 'sueldo', 'remboursement', 'ruckerstattung', 'rimborso', 'refund', 'allocations familiales', 'kinderzulage', 'assegni familiari'] },
@@ -289,8 +290,28 @@
     if (tx.fixedId || !(tx.amount < 0) || tx.transfer || tx.excluded) return;
     const per = periodFor(doc, tx.date || today());
     const paid = new Set(live(doc.tx).filter((x) => x.fixedId && x.date >= per.start && x.date <= per.end).map((x) => x.fixedId));
+    const p = matchPlanned(doc, tx);
+    if (p) { tx.fixedId = p.id; tx.env = 'fixed'; return; }
     const c = matchFixed(doc, tx, paid, doc.settings && doc.settings.learned);
     if (c) { tx.fixedId = c.id; tx.env = chargeEnv(c); }
+  }
+  // Dépense prévue encore ouverte, du mois du paiement ou des mois voisins : référence QR retrouvée, ou montant exact et même créancier.
+  function matchPlanned(doc, tx) {
+    const amt = -tx.amount, text = fold((tx.bankLabel || '') + ' ' + (tx.label || '')), digits = text.replace(/[^0-9a-z]/g, '');
+    const month = salaryMonth(periodFor(doc, tx.date || today()));
+    const near = new Set([addMonths(month + '-01', -1).slice(0, 7), month, addMonths(month + '-01', 1).slice(0, 7)]);
+    const done = new Set(live(doc.tx).filter((x) => x.fixedId).map((x) => x.fixedId));
+    let best = null, bestScore = 0;
+    for (const p of live(doc.planned)) {
+      if (done.has(p.id) || !near.has(p.month) || !(num(p.amount) > 0)) continue;
+      const ref = p.qr && p.qr.ref ? fold(p.qr.ref).replace(/[^0-9a-z]/g, '') : '';
+      const w = keyWord(p.label);
+      const named = !!w && text.includes(w);
+      const exact = cents(num(p.amount)) === cents(amt);
+      const score = ref && ref.length >= 8 && digits.includes(ref) ? 3 : exact && named ? 2 : exact && p.qr && p.qr.iban && digits.includes(fold(p.qr.iban).replace(/[^0-9a-z]/g, '')) ? 2 : 0;
+      if (score > bestScore) { best = p; bestScore = score; }
+    }
+    return best;
   }
   // Après un import ou une correction : relie aux charges les paiements qui ne le sont pas encore.
   function relinkFixed(doc, now) {
@@ -315,7 +336,13 @@
         if (isYearly(c)) { f.yearly = true; f.covered = yearlyCovered(c, month); f.short = round2(num(c.amount) - f.covered); }
         return f;
       });
-    for (const p of plannedFor(doc, salaryMonth(per))) list.push({ charge: p, kind: 'fixed', paid: tx.find((x) => x.fixedId === p.id) || null, partial: 0, planned: true });
+    // une dépense prévue (facture QR…) payée plus tôt ou plus tard que son mois est réglée : elle ne pèse plus sur ce mois
+    const linked = new Set(live(doc.tx).filter((x) => x.fixedId && !x.excluded && (x.date < per.start || x.date > per.end)).map((x) => x.fixedId));
+    for (const p of plannedFor(doc, salaryMonth(per))) {
+      const paid = tx.find((x) => x.fixedId === p.id) || null;
+      if (!paid && linked.has(p.id)) continue;
+      list.push({ charge: p, kind: 'fixed', paid, partial: 0, planned: true });
+    }
     const pools = {};
     for (const x of inPer) if (!x.fixedId && x.amount < 0 && !x.transfer && (x.env || envOf(x.cat)) === 'fixed') pools[x.cat] = round2((pools[x.cat] || 0) - x.amount);
     for (const f of list) {
@@ -447,6 +474,135 @@
     return acc.length ? round2(acc.reduce((t, a) => t + num(a.balance), 0)) : num(doc.settings && doc.settings.emergencyFund);
   }
 
+  // ---------- facture QR suisse ----------
+  // Contenu du code QR (norme SIX, version 0200) : une valeur par ligne. Voir « Swiss Implementation Guidelines QR-bill ».
+  function ibanOk(iban) {
+    const s2 = String(iban || '').replace(/\s+/g, '').toUpperCase();
+    if (!/^(CH|LI)\d{2}[0-9A-Z]{17}$/.test(s2)) return false;
+    const r = (s2.slice(4) + s2.slice(0, 4)).replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
+    let m = 0;
+    for (const ch of r) m = (m * 10 + +ch) % 97;
+    return m === 1;
+  }
+  function parseQrBill(text) {
+    const L = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+    if (L[0] !== 'SPC') return { ok: false, error: 'not-qr-bill' };
+    if (!/^02\d\d$/.test(L[1] || '')) return { ok: false, error: 'version' };
+    const iban = (L[3] || '').replace(/\s+/g, '').toUpperCase();
+    if (!ibanOk(iban)) return { ok: false, error: 'iban' };
+    const adr = (o) => {
+      const type = L[o] || 'S';
+      const name = (L[o + 1] || '').trim();
+      const city = type === 'K' ? (L[o + 3] || '').replace(/^\d{4,5}\s*/, '').trim() : (L[o + 5] || '').trim();
+      return { name, city, country: (L[o + 6] || '').trim() };
+    };
+    const creditor = adr(4);
+    const amountRaw = (L[18] || '').trim();
+    const amount = amountRaw ? round2(parseFloat(amountRaw)) : null;
+    const currency = (L[19] || '').trim();
+    if (currency !== 'CHF' && currency !== 'EUR') return { ok: false, error: 'currency' };
+    const debtor = adr(20);
+    const refType = (L[27] || 'NON').trim(), ref = (L[28] || '').trim(), message = (L[29] || '').trim();
+    if ((L[30] || '').trim() !== 'EPD') return { ok: false, error: 'trailer' };
+    const bill = (L[31] || '').trim();
+    // informations de facturation Swico (//S1/…) : /11/ date de facture AAMMJJ, /40/ conditions « 0:30 » (escompte : jours)
+    let invoiceDate = null, dueDate = null, invoiceNo = '';
+    const m = bill.match(/^\/\/S1\/(.*)$/);
+    if (m) {
+      const parts = m[1].split(/\/(?=\d{2}\/)/);
+      const tag = {};
+      for (const part of parts) { const k = part.slice(0, 2), v = part.slice(3); tag[k] = v; }
+      invoiceNo = tag['10'] || '';
+      if (/^\d{6}/.test(tag['11'] || '')) invoiceDate = validDate(2000 + +tag['11'].slice(0, 2), +tag['11'].slice(2, 4), +tag['11'].slice(4, 6));
+      const cond = (tag['40'] || '').split(';').map((c) => c.split(':')).filter((c) => c.length === 2);
+      const days = cond.length ? Math.max(...cond.map((c) => +c[1] || 0)) : 0;
+      if (invoiceDate && days) dueDate = addDays(invoiceDate, days);
+    }
+    return { ok: true, iban, creditor, debtor, amount: amount > 0 ? amount : null, currency, refType, ref, message, bill, invoiceNo, invoiceDate, dueDate };
+  }
+  // Facture lue → dépense prévue : mois de salaire de l'échéance (ou le mois en cours), catégorie devinée du créancier.
+  function billToPlanned(doc, bill, todayStr) {
+    const t = todayStr || today();
+    const when = bill.dueDate && bill.dueDate > t ? bill.dueDate : t;
+    const month = salaryMonth(periodFor(doc, when));
+    const label = bill.creditor.name || bill.message || 'Facture';
+    const cat = categorize(label + ' ' + (bill.message || ''), doc.settings && doc.settings.learned);
+    const dup = live(doc.planned).find((p) => p.qr && ((bill.ref && p.qr.ref === bill.ref) || (!bill.ref && p.qr.iban === bill.iban && num(p.amount) === num(bill.amount) && p.month === month)));
+    return { label, amount: bill.amount, cat: cat === 'autre' ? 'autre' : cat, month, dup: dup || null, qr: { iban: bill.iban, ref: bill.ref, refType: bill.refType, creditor: bill.creditor.name, city: bill.creditor.city, due: bill.dueDate, invoiceNo: bill.invoiceNo, message: bill.message, currency: bill.currency } };
+  }
+
+  // ---------- prévision du solde ----------
+  // Du jour jusqu'à la veille du prochain salaire : charges et dépenses prévues à leur date, quotidien au rythme observé.
+  function forecast(doc, todayStr) {
+    const t = todayStr || today();
+    const st = monthState(doc, t), per = st.period, f = st.flow;
+    const cur = live(doc.accounts).filter((a) => a.kind === 'courant');
+    const fromAccounts = cur.length > 0;
+    const startBal = fromAccounts ? round2(cur.reduce((s2, a) => s2 + num(a.balance), 0)) : f.left;
+    const events = [];
+    for (const it of st.fixed) {
+      if (it.paid) continue;
+      let amount = 0;
+      if (it.kind === 'fixed') amount = it.yearly ? it.short : round2(num(it.charge.amount) - (it.partial || 0));
+      else if (f[it.kind] && f[it.kind].contract) amount = num(it.charge.amount);
+      if (!(amount > 0)) continue;
+      const due = !it.planned && num(it.charge.day) > 0 ? dueDate(per, it.charge.day) : it.planned && it.charge.qr && it.charge.qr.due && it.charge.qr.due >= t && it.charge.qr.due <= per.end ? it.charge.qr.due : null;
+      events.push({ date: due && due > t ? due : t, label: it.charge.label, amount: -amount, late: !!due && due < t, undated: !due });
+    }
+    // rythme du quotidien : ce mois si assez de jours, sinon la moyenne du mois précédent, sinon le budget
+    let perDay;
+    if (per.elapsed >= 5) perDay = st.spent.daily / per.elapsed;
+    else {
+      const prev = periodAt(doc, 1, t);
+      const sp = dailySeries(doc, prev, prev.end);
+      const tot = sp.byDay.reduce((a, b) => a + b, 0);
+      perDay = tot > 0 ? tot / sp.days : Math.max(0, f.dailyBudget) / per.days;
+    }
+    perDay = round2(Math.max(0, perDay));
+    const points = [];
+    let bal = startBal, low = { date: t, balance: startBal }, first = null;
+    for (let d = t; d <= per.end; d = addDays(d, 1)) {
+      const evs = events.filter((e) => e.date === d);
+      for (const e of evs) bal = round2(bal + e.amount);
+      if (d > t || per.elapsed > 0) bal = round2(bal - (d === t ? 0 : perDay));
+      points.push({ date: d, balance: bal, events: evs });
+      if (bal < low.balance) low = { date: d, balance: bal };
+      if (bal < 0 && !first) first = { date: d, balance: bal, cause: evs.length ? evs[evs.length - 1].label : null };
+    }
+    // ce qu'il faudrait économiser par jour pour ne pas passer sous zéro
+    const days = Math.max(1, diffDays(per.end, t));
+    const cut = low.balance < 0 ? r05(-low.balance / days) : 0;
+    return { fromAccounts, start: startBal, perDay, events: events.sort((a, b) => (a.date < b.date ? -1 : 1)), points, low, firstNegative: first, end: points.length ? points[points.length - 1].balance : startBal, until: per.end, cutPerDay: cut };
+  }
+
+  // ---------- dossier pour la déclaration d'impôts ----------
+  // Ce que le contribuable doit retrouver pour remplir sa déclaration : sommes de l'année civile, avec le détail des mouvements.
+  function taxDossier(doc, year) {
+    const y = String(year);
+    const inYear = live(doc.tx).filter((x) => x.date.slice(0, 4) === y && !x.excluded);
+    const pick = (fn) => { const list = inYear.filter((x) => x.amount < 0 && fn(x)).sort((a, b) => (a.date < b.date ? -1 : 1)); return { total: round2(list.reduce((s2, x) => s2 - x.amount, 0)), list: list.map((x) => ({ date: x.date, label: x.label, amount: round2(-x.amount) })) }; };
+    const byId = Object.fromEntries(live(doc.fixed).map((c) => [c.id, c]));
+    const catOf = (x) => (x.fixedId && byId[x.fixedId] ? byId[x.fixedId].cat : x.cat);
+    const income = inYear.filter((x) => x.amount > 0 && !x.transfer);
+    const salaryTx = income.filter((x) => catOf(x) === 'revenu' && !isBonus(x));
+    const incomeTotal = round2(income.reduce((s2, x) => s2 + x.amount, 0));
+    const s0 = doc.settings || {};
+    const netIncome = incomeTotal > 0 ? incomeTotal : round2(num(s0.salary) * (num(s0.salaries) || 12));
+    const p3a = pick((x) => is3aTx(doc, x));
+    const health = pick((x) => catOf(x) === 'sante');
+    const threshold = round2(netIncome * 0.05);
+    const items = {
+      p3a: { ...p3a, max: P3A_MAX[+y] || P3A_MAX[2026] },
+      childcare: pick((x) => catOf(x) === 'garde'),
+      alimony: pick((x) => catOf(x) === 'pension'),
+      health: { ...health, threshold, deductible: round2(Math.max(0, health.total - threshold)) },
+      donations: (() => { const d2 = pick((x) => catOf(x) === 'dons'); return { ...d2, deductible: d2.total >= 100 ? round2(Math.min(d2.total, netIncome * 0.2)) : 0 }; })(),
+      training: pick((x) => catOf(x) === 'formation'),
+      interest: pick((x) => /(^| )(interets?|zins|zinsen|interessi|hypotheque|hypothek|ipoteca)( |$)/.test(' ' + fold(x.label).replace(/[^a-z0-9]+/g, ' ') + ' ')),
+    };
+    return { year: +y, income: { total: incomeTotal, salaries: salaryTx.length, salaryTotal: round2(salaryTx.reduce((s2, x) => s2 + x.amount, 0)), bonus: round2(income.filter(isBonus).reduce((s2, x) => s2 + x.amount, 0)), net: netIncome }, items };
+  }
+
   // ---------- plafonds par catégorie ----------
   // settings.limits = { courses: 800, sorties: 250 } : plafond mensuel des dépenses du quotidien.
   function limitsState(doc, todayStr) {
@@ -504,15 +660,15 @@
   // dont le libellé, ou la charge fixe reliée, parle de 3a / 3e pilier / prestataire 3a.
   const P3A_MAX = { 2025: 7258, 2026: 7258 };
   const P3A_RE = /(^| )(3a|3e pilier|pilier 3a|saule 3a|saeule 3a|3 saule|pilastro 3a|terzo pilastro|viac|frankly|finpension|selma 3a|vorsorge 3a|prevoyance)( |$)/;
+  function is3aTx(doc, x) {
+    const c = x.fixedId && live(doc.fixed).find((y) => y.id === x.fixedId);
+    const text = fold((x.label || '') + ' ' + (x.bankLabel || '') + ' ' + (c ? c.label : '')).replace(/[^a-z0-9]+/g, ' ');
+    return (x.cat === 'invest' || (!!c && c.cat === 'invest')) && P3A_RE.test(' ' + text + ' ');
+  }
   function pillar3a(doc, todayStr) {
     const t = todayStr || today(), year = +t.slice(0, 4);
     const max = P3A_MAX[year] || P3A_MAX[2026];
-    const byId = Object.fromEntries(live(doc.fixed).map((c) => [c.id, c]));
-    const is3a = (x) => {
-      const c = x.fixedId && byId[x.fixedId];
-      const text = fold((x.label || '') + ' ' + (x.bankLabel || '') + ' ' + (c ? c.label : '')).replace(/[^a-z0-9]+/g, ' ');
-      return (x.cat === 'invest' || (c && c.cat === 'invest')) && P3A_RE.test(' ' + text + ' ');
-    };
+    const is3a = (x) => is3aTx(doc, x);
     const paid = round2(live(doc.tx).filter((x) => x.amount < 0 && !x.excluded && x.date.slice(0, 4) === String(year) && is3a(x)).reduce((s2, x) => s2 - x.amount, 0));
     // versements encore prévus d'ici au 31 décembre par une charge fixe 3a (ordre permanent)
     const monthly = live(doc.fixed).filter((c) => c.cat === 'invest' && P3A_RE.test(' ' + fold(c.label).replace(/[^a-z0-9]+/g, ' ') + ' ')).reduce((s2, c) => s2 + monthlyOf(c), 0);
@@ -633,7 +789,8 @@
     const p = st.plan;
     const start = addDays(st.period.end, 1);
     const month = start.slice(0, 7);
-    const planned = plannedFor(doc, month);
+    const paidIds = new Set(live(doc.tx).filter((x) => x.fixedId && !x.excluded).map((x) => x.fixedId));
+    const planned = plannedFor(doc, month).filter((x) => !paidIds.has(x.id));
     const plannedSum = round2(planned.reduce((t, x) => t + num(x.amount), 0));
     const mNum = +month.slice(5, 7);
     const yearly = live(doc.fixed).filter((c) => isYearly(c) && chargeEnv(c) === 'fixed' && num(c.dueMonth) === mNum && num(c.amount) > 0)
@@ -900,7 +1057,7 @@
   const F = {
     CATS, CAT_BY_ID, ENVS, PRESETS,
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
-    envOf, chargeEnv, isBonus, limitsState, goalsState, yearReview, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
+    envOf, chargeEnv, isBonus, ibanOk, parseQrBill, billToPlanned, matchPlanned, forecast, taxDossier, limitsState, goalsState, yearReview, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
     addTx, updateTx, deleteTx, matchFixed, relinkFixed, fixedStatus, plannedFor, dueDate, setCheck,
     monthState, alerts, emergencyFund, history, nextMonth, dailySeries, parseIngest, ingest, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,

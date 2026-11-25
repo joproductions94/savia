@@ -433,3 +433,35 @@ html, body { overflow-x: clip; }
 .bonus { border: 1px solid color-mix(in srgb, var(--savings) 40%, var(--line)); background: color-mix(in srgb, var(--savings) 6%, var(--surface)); display: grid; gap: 8px; }
 .bonus h2 { margin: 0; }
 .review .big { margin: 2px 0; }
+
+/* prévision du solde */
+.forecast .chart svg { width: 100%; height: 96px; display: block; overflow: visible; }
+.forecast .chart .zero { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
+.forecast .chart .line { fill: none; stroke: var(--primary); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.forecast .chart .area { fill: var(--primary); opacity: .08; stroke: none; }
+.forecast .chart .ev { fill: var(--surface); stroke: var(--fixed); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.forecast .chart .low { fill: var(--primary); stroke: var(--surface); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.forecast.is-neg .chart .line { stroke: var(--danger); }
+.forecast.is-neg .chart .area { fill: var(--danger); }
+.forecast.is-neg .chart .low { fill: var(--danger); }
+.forecast .note { margin: 8px 0 0; }
+.fc-events { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: grid; gap: 4px; font-size: .84rem; }
+.fc-events li { display: grid; grid-template-columns: 4.6em minmax(0, 1fr) auto; gap: 8px; }
+.fc-events li span:first-child { color: var(--muted); }
+.fc-events li span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* scan de facture QR */
+.scan-view { position: relative; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden; background: #0b1211; }
+.scan-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-view.off { aspect-ratio: auto; min-height: 72px; background: var(--surface-2); }
+.scan-view.off video, .scan-view.off .scan-frame { display: none; }
+.scan-frame { position: absolute; inset: 18% 26%; border: 2.5px solid #fff; border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, .35); }
+.scan-msg { position: absolute; left: 12px; right: 12px; bottom: 10px; margin: 0; color: #fff; font-size: .86rem; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
+.scan-view.off .scan-msg { position: static; color: var(--muted); padding: 24px 12px; text-shadow: none; }
+.scan-msg.err { color: #ffd1c9; }
+.scan-view.off .scan-msg.err { color: var(--danger); }
+.file-btn { cursor: pointer; }
+.qr-card { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 12px; background: var(--surface-2); font-size: .88rem; }
+.qr-card small { display: block; color: var(--muted); font-size: .76rem; word-break: break-all; }
+.row-btns .btn svg, .btn.block svg { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: no-preference) { .scan-frame { animation: scanPulse 1.8s ease-in-out infinite; } @keyframes scanPulse { 50% { border-color: color-mix(in srgb, #fff 55%, var(--primary)); } } }
+.fc-events li b { color: var(--ink); font-weight: 600; }

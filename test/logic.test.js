@@ -414,3 +414,79 @@ test('bilan : les mois d’avant le premier revenu ne comptent pas', () => {
   const r = F.yearReview(d, '2026-11-27');
   assert.equal(r.months, 2); assert.equal(r.perMonth.income, 6000);
 });
+
+// ---------- facture QR, prévision du solde, dossier impôts ----------
+const QR_SAMPLE = ['SPC', '0200', '1', 'CH4431999123000889012', 'S', 'Robert Schneider AG', 'Rue du Lac', '1268', '2501', 'Biel', 'CH',
+  '', '', '', '', '', '', '', '1949.75', 'CHF', 'S', 'Pia-Maria Rutschmann-Schnyder', 'Grosse Marktgasse', '28', '9400', 'Rorschach', 'CH',
+  'QRR', '210000000003139471430009017', 'Order of 15 June 2020', 'EPD', '//S1/10/10201409/11/200701/20/140.000-53/30/102673831/31/200615/32/7.7/33/7.7:4.00/40/0:30'].join('\r\n');
+
+test('facture QR : lecture du contenu SIX (exemple officiel)', () => {
+  const b = F.parseQrBill(QR_SAMPLE);
+  assert.equal(b.ok, true);
+  assert.equal(b.iban, 'CH4431999123000889012');
+  assert.equal(b.creditor.name, 'Robert Schneider AG'); assert.equal(b.creditor.city, 'Biel');
+  assert.equal(b.amount, 1949.75); assert.equal(b.currency, 'CHF');
+  assert.equal(b.refType, 'QRR'); assert.equal(b.ref, '210000000003139471430009017');
+  assert.equal(b.invoiceDate, '2020-07-01'); assert.equal(b.dueDate, '2020-07-31');
+});
+
+test('facture QR : refus propre des contenus invalides', () => {
+  assert.equal(F.parseQrBill('https://exemple.ch').error, 'not-qr-bill');
+  assert.equal(F.parseQrBill(QR_SAMPLE.replace('CH4431999123000889012', 'CH4431999123000889013')).error, 'iban');
+  assert.equal(F.parseQrBill(QR_SAMPLE.replace('\r\nEPD', '\r\nXXX')).error, 'trailer');
+  // sans montant (le payeur le saisit) et adresse combinée « K »
+  const k = QR_SAMPLE.replace('1949.75', '').replace('\r\nS\r\nRobert Schneider AG\r\nRue du Lac\r\n1268\r\n2501\r\nBiel', '\r\nK\r\nRobert Schneider AG\r\nRue du Lac 1268\r\n2501 Biel\r\n\r\n');
+  const b = F.parseQrBill(k);
+  assert.equal(b.ok, true); assert.equal(b.amount, null); assert.equal(b.creditor.city, 'Biel');
+});
+
+test('facture QR → dépense prévue dans le mois de l’échéance, puis réglée par le relevé', () => {
+  const d = baseDoc();
+  const bill = { ...F.parseQrBill(QR_SAMPLE), dueDate: '2026-12-28' };
+  const pl = F.billToPlanned(d, bill, '2026-11-27');
+  assert.equal(pl.month, '2026-12'); assert.equal(pl.amount, 1949.75); assert.equal(pl.dup, null);
+  d.planned.push({ id: 'qr1', label: pl.label, amount: pl.amount, cat: pl.cat, month: pl.month, qr: pl.qr, updatedAt: 1 });
+  assert.ok(F.billToPlanned(d, bill, '2026-11-27').dup, 'la même facture n’est pas ajoutée deux fois');
+  assert.equal(F.nextMonth(d, '2026-11-27').plannedSum, 1949.75);
+  // payée en avance, en novembre : le relevé porte la référence
+  const tx = F.addTx(d, { date: '2026-11-28', amount: -1949.75, label: 'Robert Schneider', bankLabel: 'QR 21 00000 00003 13947 14300 09017', cat: 'autre' }, 2);
+  assert.equal(tx.fixedId, 'qr1');
+  assert.equal(F.nextMonth(d, '2026-11-28').plannedSum, 0, 'plus rien à payer en décembre');
+  assert.ok(!F.monthState(d, '2026-12-26').fixed.some((x) => x.charge.id === 'qr1'));
+});
+
+test('prévision : le point bas arrive avec la charge datée, et le conseil par jour', () => {
+  const d = baseDoc();
+  d.accounts = [{ id: 'a', name: 'Neon', kind: 'courant', balance: 2000, updatedAt: 1 }];
+  d.fixed[0].day = 1; // loyer le 1er
+  d.fixed.push({ id: 'lamal', label: 'Assurance maladie', amount: 450, cat: 'assurances', day: 5, updatedAt: 1 });
+  F.addTx(d, { date: '2026-11-25', amount: 6000, label: 'Salaire', cat: 'revenu', skipBalance: true }, 1);
+  for (let i = 0; i < 5; i++) F.addTx(d, { date: F.addDays('2026-11-25', i), amount: -30, label: 'Migros', cat: 'courses', skipBalance: true }, 1);
+  const fc = F.forecast(d, '2026-11-30');
+  assert.equal(fc.fromAccounts, true); assert.equal(fc.start, 2000);
+  assert.equal(fc.perDay, 25); // 150 dépensés en 6 jours
+  const dec1 = fc.points.find((x) => x.date === '2026-12-01');
+  assert.equal(dec1.balance, 2000 - 25 - 1800);
+  assert.equal(fc.firstNegative.date, '2026-12-05');
+  assert.equal(fc.firstNegative.cause, 'Assurance maladie');
+  assert.ok(fc.cutPerDay > 0);
+});
+
+test('dossier impôts : déductions de l’année civile', () => {
+  const d = baseDoc();
+  const add = (date, amount, label, cat) => F.addTx(d, { date, amount, label, cat }, 1);
+  for (let m = 1; m <= 12; m++) add(`2025-${String(m).padStart(2, '0')}-25`, 6000, 'Salaire', 'revenu');
+  add('2025-12-10', 6000, '13e salaire', 'revenu');
+  add('2025-03-01', -7258, 'VIAC 3a', 'invest');
+  add('2025-04-01', -1100, 'Crèche Les Lutins', 'garde');
+  add('2025-05-01', -5200, 'Dentiste', 'sante');
+  add('2025-06-01', -150, 'Caritas', 'dons');
+  add('2026-01-05', -500, 'Dentiste', 'sante');
+  const r = F.taxDossier(d, 2025);
+  assert.equal(r.income.total, 78000); assert.equal(r.income.salaries, 12); assert.equal(r.income.bonus, 6000);
+  assert.equal(r.items.p3a.total, 7258);
+  assert.equal(r.items.childcare.total, 1100);
+  assert.equal(r.items.health.total, 5200); assert.equal(r.items.health.threshold, 3900); assert.equal(r.items.health.deductible, 1300);
+  assert.equal(r.items.donations.deductible, 150);
+  assert.equal(F.categorize('Don Croix-Rouge'), 'dons');
+});
