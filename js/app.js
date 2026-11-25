@@ -885,7 +885,7 @@
       <div class="section-head"><h2 class="cap">${esc(mLong.format(asDate(n.start)))}</h2><span class="sub">${t('next.sub', { date: esc(ds(n.start)) })}</span></div>
       <div class="card calc"><div class="flow">
         ${row('income', t('next.salary'), fmt(n.salary), t('next.salaryNote'))}
-        ${row('fixed', t('next.fixed'), fmt(-n.fixed), t('next.fixedNote', { n: fxCount }) + (n.provision ? ' · ' + t('next.provisionNote', { amount: fmt(n.provision) }) : ''))}
+        ${row('fixed', fxCount ? t('next.fixed') : t('next.fixedEst'), fmt(-n.fixed), !fxCount ? t('next.fixedEstNote') : t('next.fixedNote', { n: fxCount }) + (n.provision ? ' · ' + t('next.provisionNote', { amount: fmt(n.provision) }) : ''))}
         ${n.yearly.filter((y) => y.short > 0).map((y) => row('fixed', esc(y.charge.label), fmt(-y.short), t('next.yearlyShort', { amount: fmt(y.charge.amount), covered: fmt(y.covered) }))).join('')}
         ${n.invest ? row('invest', t('calc.invest'), fmt(-n.invest), esc(inv)) : ''}
         ${n.planned.map((x) => `<button class="flow-row" data-action="edit-planned" data-id="${esc(x.id)}"><span class="key" style="--c:var(--fixed)"></span><span>${esc(x.label)}<small>${x.qr ? t('qr.tag') + (x.qr.due ? ' · ' + t('qr.due', { date: esc(ds(x.qr.due)) }) : '') : t('next.plannedNote', { cat: esc(catLabel(x.cat)) })}</small></span><span class="num">${fmt(-x.amount)}</span></button>`).join('')}
@@ -895,6 +895,7 @@
       </div>
       ${goalGap(n)}
       ${n.carry < 0 ? `<p class="bank-line"><span>${t('next.carry', { amount: `<b class="neg num">${fmt(n.carry)}</b>` })}</span></p>` : ''}
+      ${fxCount ? '' : `<button class="btn primary block" data-action="new-fixed">${t('next.addFixed')}</button>`}
       <div class="row-btns"><button class="btn" data-action="new-planned" data-month="${esc(n.month)}">${t('next.add')}</button><button class="btn" data-action="scan-bill">${svg('qr')}${t('qr.scan')}</button></div>
       </div>
     </section>`;
