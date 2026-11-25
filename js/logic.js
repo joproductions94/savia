@@ -534,7 +534,7 @@
   const BANK_CATS = [[/transport|mobilit|verkehr|trasport/, 'transport'], [/sant|gesund|health/, 'sante'], [/loisir|freizeit|tempo libero|entertain|leisure/, 'loisirs'], [/restaur|gastro|bars?\b/, 'sorties'], [/logement|wohnen|abitazione|housing/, 'logement'], [/assur|versich|insur/, 'assurances'], [/vetement|kleid|abbigl|cloth/, 'vetements']];
   function parseStatement(text) {
     const delim = detectDelimiter(text);
-    const rows = splitCSV(String(text || '').replace(/^﻿/, ''), delim);
+    const rows = splitCSV(String(text || '').replace(/^\ufeff/, ''), delim);
     let hi = rows.findIndex((r) => r.some((c) => H.date.test(fold(c))) && r.some((c) => H.amount.test(fold(c)) || H.debit.test(fold(c))));
     if (hi < 0) return { ok: false, error: 'no-header', rows: [] };
     const head = rows[hi].map(fold);
@@ -674,7 +674,7 @@
     const q = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
     const lines = [['date', 'label', 'amount', 'category', 'account', 'transfer', 'excluded', 'source'].join(';')];
     for (const x of live(doc.tx).sort((a, b) => (a.date < b.date ? -1 : 1))) lines.push([x.date, q(x.label), x.amount.toFixed(2), x.cat, q(acc[x.accountId] || ''), x.transfer ? 1 : 0, x.excluded ? 1 : 0, x.source || ''].join(';'));
-    return '﻿' + lines.join('\r\n') + '\r\n';
+    return '\ufeff' + lines.join('\r\n') + '\r\n';
   }
 
   const F = {

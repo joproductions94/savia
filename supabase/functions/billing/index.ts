@@ -71,14 +71,26 @@ async function syncSubscription(sub: Record<string, any>) {
   const userId = sub.metadata?.user_id;
   if (!userId) return;
   const item = sub.items?.data?.[0];
+  const end = item?.current_period_end ?? sub.current_period_end;
+  const interval = item?.price?.recurring?.interval ?? null;
+  const amount = item?.price?.unit_amount != null ? item.price.unit_amount / 100 : null;
+  const before = await getSub(userId);
   await upsertSub({
     user_id: userId,
     stripe_customer_id: sub.customer,
     stripe_subscription_id: sub.id,
     status: sub.status,
-    price_interval: item?.price?.recurring?.interval ?? null,
-    current_period_end: (item?.current_period_end ?? sub.current_period_end) ? new Date((item?.current_period_end ?? sub.current_period_end) * 1000).toISOString() : null,
+    price_interval: interval,
+    amount_chf: amount,
+    current_period_end: end ? new Date(end * 1000).toISOString() : null,
+    trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+    canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
+    ...(before?.stripe_subscription_id ? {} : { created_at: new Date((sub.created ?? Date.now() / 1000) * 1000).toISOString() }),
   });
+  // une ligne d'historique à chaque changement de statut ou de formule
+  if (!before || before.status !== sub.status || before.price_interval !== interval) {
+    await admin('subscription_events', { method: 'POST', body: JSON.stringify({ user_id: userId, stripe_subscription_id: sub.id, status: sub.status, previous_status: before?.status ?? null, price_interval: interval, amount_chf: amount }) });
+  }
 }
 
 Deno.serve(async (req) => {
