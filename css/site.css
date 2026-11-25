@@ -101,7 +101,7 @@ a { color: var(--primary); }
 .float b { display: block; font-size: .82rem; }
 .float small { color: var(--muted); }
 .float.f1 { left: -56px; top: -26px; }
-.float.f2 { right: -54px; bottom: 96px; }
+.float.f2 { right: 24px; bottom: -30px; }
 @media (prefers-reduced-motion: no-preference) {
   .float { animation: bob 6s ease-in-out infinite; }
   .float.f2 { animation-delay: -3s; }
@@ -237,7 +237,7 @@ footer.site .bottom { margin-top: 56px; padding-top: 24px; border-top: 1px solid
 .legal p, .legal li { color: var(--muted); }
 .legal ul { padding-left: 1.2em; }
 
-@media (max-width: 1180px) { .float.f1 { left: -12px; } .float.f2 { right: -12px; } }
+@media (max-width: 1180px) { .float.f1 { left: -12px; } }
 @media (max-width: 960px) {
   .nav .links { display: none; }
   .hero .wrap, .truth, .feature, .final { grid-template-columns: 1fr; }
@@ -261,3 +261,42 @@ footer.site .bottom { margin-top: 56px; padding-top: 24px; border-top: 1px solid
   .float { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+
+/* ===================== motion =====================
+   Héros : une vague à l'arrivée (titre, puis texte et boutons, téléphone, cartes flottantes).
+   Sections : une seule entrée par bloc au défilement, toujours visible au repos (jamais à opacité 0). */
+:root { --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-draw: cubic-bezier(.645, .045, .355, 1); }
+@media (prefers-reduced-motion: no-preference) {
+  .intro .hero [data-in] { animation: heroIn .6s var(--ease-out) both; animation-delay: var(--d, 0ms); }
+  .intro .hero .eyebrow[data-in] { animation-name: fadeOnly; }
+  .intro .hero .device { animation: deviceIn .8s var(--ease-out) both; animation-delay: 120ms; }
+  .intro .hero .float { animation: fadeOnly .5s ease both, bob 6s ease-in-out 1.2s infinite; }
+  .intro .hero .float.f1 { animation-delay: 620ms, 1.2s; }
+  .intro .hero .float.f2 { animation-delay: 720ms, 4.2s; }
+  @keyframes heroIn { from { opacity: 0; transform: translateY(14px); } }
+  @keyframes deviceIn { from { opacity: 0; transform: translateY(28px) scale(.97); } }
+  @keyframes fadeOnly { from { opacity: 0; } }
+
+  .rv { transition: opacity .7s var(--ease-out), transform .7s var(--ease-out); }
+  .rv.pre { opacity: .3; transform: translateY(24px); }
+  .rv-kids > * { transition: opacity .6s var(--ease-out), transform .6s var(--ease-out); transition-delay: var(--i, 0ms); }
+  .rv-kids.pre > * { opacity: .3; transform: translateY(14px); }
+  .feature .visual.rv { transition-delay: 90ms; }
+
+  .compare .yes svg { stroke-dasharray: 30; stroke-dashoffset: 0; transition: stroke-dashoffset .5s var(--ease-draw); transition-delay: var(--i, 0ms); }
+  .compare.pre .yes svg { stroke-dashoffset: 30; }
+
+  .ui-state.done i { animation: pop .38s var(--ease-out); }
+  .ui-state i::after { transition: opacity .2s ease; }
+  @keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  .ui-meter i { transition: width 1s var(--ease-out); }
+  .btn svg { transition: transform .2s var(--ease-out); }
+  .btn:hover svg { transform: translateX(3px); }
+  .final::after { animation: drift 14s ease-in-out infinite alternate; }
+  @keyframes drift { to { transform: translate(-40px, 30px) scale(1.08); } }
+  .flash-num { animation: numFlash .6s ease; }
+  @keyframes numFlash { 30% { color: var(--primary); } }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 620px) {
+  .intro .hero .float { animation: none; }
+}

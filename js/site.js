@@ -196,6 +196,77 @@
     const lb = e.target.closest('[data-lang]'); if (lb) { apply(lb.dataset.lang); return; }
     const bb = e.target.closest('[data-bill]'); if (bb) { bill = bb.dataset.bill; price(); }
   });
+  // ---------- motion ----------
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fmtChf = (v) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, '’');
+  // Compte un nombre jusqu'à sa valeur (sortie en douceur).
+  function countTo(el, to, from, dur) {
+    if (!el) return;
+    if (reduce) { el.textContent = fmtChf(to); return; }
+    const t0 = performance.now(), f = from == null ? 0 : from;
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmtChf(f + (to - f) * e);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  // Héros : la vague d'arrivée, puis le chiffre se compte et la barre se remplit.
+  document.documentElement.classList.add('intro');
+  const meter = document.querySelector('.ui-meter i');
+  if (!reduce && meter) { meter.style.width = '0%'; requestAnimationFrame(() => setTimeout(() => { meter.style.width = ''; }, 380)); }
+  setTimeout(() => countTo(document.getElementById('heroBig'), 2202.6, 0, 1100), 360);
+
+  // Démonstration : « Téléphone » passe à Payé, le montant à payer baisse ; puis retour. Le reste après tout payé ne bouge pas.
+  const demo = document.getElementById('demoState'), pend = document.getElementById('heroPending');
+  let demoPaid = false, demoTimer = null, heroVisible = true;
+  function demoFlip() {
+    if (!demo || document.hidden || !heroVisible) return;
+    demoPaid = !demoPaid;
+    demo.classList.toggle('done', demoPaid);
+    const label = demo.querySelector('span');
+    label.dataset.i = demoPaid ? 'ui.paid' : 'ui.pay';
+    label.textContent = L[lang][label.dataset.i];
+    countTo(pend, demoPaid ? 1286 : 1436, demoPaid ? 1436 : 1286, 600);
+  }
+  if (!reduce && demo) {
+    setTimeout(() => { demoFlip(); demoTimer = setInterval(demoFlip, 3400); }, 2600);
+    const hero = document.querySelector('.hero');
+    if ('IntersectionObserver' in window) new IntersectionObserver(([e]) => { heroVisible = e.isIntersecting; }).observe(hero);
+  }
+
+  // Sections : une entrée par bloc au défilement. Ce qui est déjà à l'écran au chargement ne bouge pas.
+  const blocks = [...document.querySelectorAll('.head, .truth > div, .feature .copy, .feature .visual, .compare, .prices, .faq, .final')];
+  const groups = [...document.querySelectorAll('.grid6, .steps')];
+  if (!reduce && 'IntersectionObserver' in window) {
+    const below = (el) => el.getBoundingClientRect().top > innerHeight * 0.92;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const el = e.target;
+        el.classList.remove('pre');
+        if (el.id === 'ledgerBox') countTo(document.getElementById('ledReal'), -379.92, 0, 1000);
+        io.unobserve(el);
+      }
+    }, { rootMargin: '0px 0px -12% 0px' });
+    blocks.forEach((el) => { if (below(el)) { el.classList.add('rv', 'pre'); io.observe(el); } });
+    groups.forEach((el) => {
+      if (!below(el)) return;
+      [...el.children].forEach((c, i) => c.style.setProperty('--i', Math.round(i * 70 - i * i * 3) + 'ms')); // écarts qui se resserrent
+      el.classList.add('rv-kids', 'pre'); io.observe(el);
+    });
+    const cmp = document.querySelector('.compare');
+    if (cmp) [...cmp.querySelectorAll('tbody tr')].forEach((r, i) => r.querySelectorAll('.yes svg').forEach((s) => s.style.setProperty('--i', i * 60 + 'ms')));
+    const ledger = document.querySelector('.ledger');
+    if (ledger) { ledger.id = 'ledgerBox'; if (below(ledger)) { ledger.classList.add('rv', 'pre'); io.observe(ledger); } }
+  }
+  // Prix : le montant glisse quand on change de formule.
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-bill]') || reduce) return;
+    const a = document.getElementById('pAmt');
+    if (a && a.animate) a.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  });
+
   const nav = document.getElementById('nav');
   const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
   window.addEventListener('scroll', onScroll, { passive: true }); onScroll();

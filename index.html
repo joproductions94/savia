@@ -53,11 +53,11 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <span class="eyebrow" data-i="hero.eyebrow"></span>
-        <h1 data-i="hero.h1"></h1>
-        <p class="lead" data-i="hero.lead"></p>
-        <div class="cta"><a class="btn primary" href="app.html"><span data-i="hero.cta"></span><svg aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="btn" href="#comment" data-i="hero.cta2"></a></div>
-        <ul class="checks"><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c1"></span></li><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c2"></span></li><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c3"></span></li></ul>
+        <span class="eyebrow" data-in data-i="hero.eyebrow"></span>
+        <h1 data-in style="--d:0ms" data-i="hero.h1"></h1>
+        <p class="lead" data-in style="--d:80ms" data-i="hero.lead"></p>
+        <div class="cta" data-in style="--d:160ms"><a class="btn primary" href="app.html"><span data-i="hero.cta"></span><svg aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="btn" href="#comment" data-i="hero.cta2"></a></div>
+        <ul class="checks" data-in style="--d:220ms"><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c1"></span></li><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c2"></span></li><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c3"></span></li></ul>
       </div>
       <div class="stage">
         <div class="device" role="img" aria-label="Aperçu de l’application Franko">
@@ -65,16 +65,16 @@
             <div class="ui-top"><span>Franko</span><span data-i="ui.month"></span></div>
             <div class="ui-card">
               <div class="ui-eyebrow"><span data-i="ui.available"></span><span class="pill" data-i="ui.ok"></span></div>
-              <div class="ui-big num">2’202.60<small>CHF</small></div>
+              <div class="ui-big num"><span id="heroBig">2’202.60</span><small>CHF</small></div>
               <div class="ui-sub" data-i="ui.perday"></div>
               <div class="ui-meter"><i></i></div>
-              <div class="ui-bank"><span><span data-i="ui.notpaid"></span> <b class="num">1’436.00 CHF</b></span></div>
+              <div class="ui-bank"><span><span data-i="ui.notpaid"></span> <b class="num"><span id="heroPending">1’436.00</span> CHF</b></span></div>
             </div>
             <div class="ui-card ui-list">
               <div class="ui-row"><span class="ui-ic"><svg><use href="#i-home"/></svg></span><span><b data-i="ui.rent"></b><small class="num">1’000.00 CHF</small></span><span class="ui-state done"><i></i><span data-i="ui.paid"></span></span></div>
               <div class="ui-row"><span class="ui-ic"><svg><use href="#i-shield"/></svg></span><span><b data-i="ui.health"></b><small class="num">365.00 CHF</small></span><span class="ui-state done"><i></i><span data-i="ui.paid"></span></span></div>
               <div class="ui-row"><span class="ui-ic"><svg><use href="#i-receipt"/></svg></span><span><b data-i="ui.tax"></b><small class="num">598.00 CHF</small></span><span class="ui-state"><i></i><span data-i="ui.pay"></span></span></div>
-              <div class="ui-row"><span class="ui-ic"><svg><use href="#i-phone"/></svg></span><span><b data-i="ui.phone"></b><small class="num">150.00 CHF</small></span><span class="ui-state"><i></i><span data-i="ui.pay"></span></span></div>
+              <div class="ui-row"><span class="ui-ic"><svg><use href="#i-phone"/></svg></span><span><b data-i="ui.phone"></b><small class="num">150.00 CHF</small></span><span class="ui-state" id="demoState"><i></i><span data-i="ui.pay"></span></span></div>
             </div>
           </div>
         </div>
@@ -101,7 +101,7 @@
       <div class="ledger" role="img" aria-label="Exemple : solde bancaire et factures à venir">
         <div class="line"><span><span data-i="led.bank"></span><small data-i="led.bankS"></small></span><span class="num">929.78</span></div>
         <div class="line"><span><span data-i="led.bills"></span><small data-i="led.billsS"></small></span><span class="num">−1’309.70</span></div>
-        <div class="line total"><span data-i="led.real"></span><span class="num neg">−379.92</span></div>
+        <div class="line total"><span data-i="led.real"></span><span class="num neg" id="ledReal">−379.92</span></div>
       </div>
     </div>
   </section>

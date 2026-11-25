@@ -84,6 +84,7 @@
     v.innerHTML = (VIEWS[ui.tab] || VIEWS.home)(st);
     if (v.dataset.tab !== ui.tab) { v.dataset.tab = ui.tab; v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
     hideTip && hideTip();
+    afterRender();
   }
   function renderBadge() {
     const b = $('#syncBadge');
@@ -135,10 +136,10 @@
       return `<div class="dash"><div class="col">
       <section class="card hero" aria-label="${esc(t('home.available'))}">
         <div class="hero-top"><span class="eyebrow">${t('home.available')}</span><span class="pill ${status[0]}">${t(status[1])}</span></div>
-        <div class="big ${over ? 'neg' : ''}">${bigAmount(f.left)}</div>
+        <div class="big ${over ? 'neg' : ''}"><span class="num" id="heroNum" data-v="${f.left}">${fmt(f.left, { bare: true })}</span><span class="cur">CHF</span></div>
         <p class="sub">${t('home.onlyPaid', { date: esc(ds(F.addDays(per.end, 1))) })}</p>
         ${f.pending >= 1 ? `<p class="bank-line"><span>${t('home.notPaid')} <b class="num">${fmt(f.pending)}</b></span><span>= ${t('home.afterAll')} <b class="num ${short ? 'neg' : ''}">${fmt(f.leftAfterAll)}</b>${!short && per.daysLeft > 0 ? ` · ${t('home.perDay', { amount: `<b class="num">${fmt(st.perDay)}</b>` })}` : ''}</span></p>` : ''}
-        <div class="meter ${over ? 'over' : ''}" style="--c:var(--primary)" role="img" aria-label="${Math.round(used)} %"><i style="width:${used.toFixed(1)}%"></i></div>
+        <div class="meter ${over ? 'over' : ''}" data-mk="hero" style="--c:var(--primary)" role="img" aria-label="${Math.round(used)} %"><i style="width:${used.toFixed(1)}%"></i></div>
         <div class="hero-actions"><button class="btn" data-action="new-tx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>${t('tx.newExpense')}</button><button class="btn" data-action="new-income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${t('tx.newIncome')}</button></div>
         <dl class="stats">
           <div><dt>${t('home.paidOut')}</dt><dd class="num">${fmt(paidOut, { bare: true })}</dd></div>
@@ -292,6 +293,50 @@
     return t('alert.' + a.id, p);
   }
 
+  // ---------- motion : réponses courtes aux actions (≤ 450 ms), dessins une fois par session ----------
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const motion = { left: null, widths: {}, drawn: {}, flash: null };
+  function tweenText(el, from, to, dur) {
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmt(from + (to - from) * e, { bare: true });
+      if (k < 1 && el.isConnected) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  function afterRender() {
+    const quiet = reduceMotion.matches;
+    // le chiffre principal se compte depuis sa valeur précédente
+    const n = $('#heroNum');
+    if (n) {
+      const v = +n.dataset.v;
+      if (!quiet && motion.left != null && Math.abs(motion.left - v) >= 0.01) { tweenText(n, motion.left, v, 450); n.parentElement.classList.add('bump'); }
+      motion.left = v;
+    }
+    // les barres partent de leur largeur précédente
+    $$('[data-mk]').forEach((m) => {
+      const bar = m.querySelector('i'); if (!bar) return;
+      const target = bar.style.width, prev = motion.widths[m.dataset.mk];
+      motion.widths[m.dataset.mk] = target;
+      if (quiet || prev == null || prev === target) return;
+      bar.style.transition = 'none'; bar.style.width = prev;
+      requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = ''; bar.style.width = target; }));
+    });
+    // retour sur l'élément touché : coche dessinée, nouveau mouvement mis en évidence
+    if (motion.flash && !quiet) {
+      const f = motion.flash;
+      const el = f.type === 'paid' ? $(`.state.done[data-id="${f.id}"]`) : $(`.list button.row[data-id="${f.id}"]`);
+      if (el) (f.type === 'paid' ? el : el.closest('li')).classList.add(f.type === 'paid' ? 'pop' : 'flash');
+    }
+    motion.flash = null;
+    // graphiques : tracés une seule fois par session
+    for (const [sel, key] of [['.pace-line', 'pace'], ['.hchart', 'hist']]) {
+      const el = $(sel);
+      if (el && !motion.drawn[key]) { motion.drawn[key] = true; if (!quiet) (key === 'pace' ? el.closest('svg') : el).classList.add('draw'); }
+    }
+  }
+
   // ---------- graphiques ----------
   // Rythme du mois : dépenses du quotidien cumulées, comparées au rythme régulier qui épuise le budget le dernier jour.
   function paceHtml(st) {
@@ -325,9 +370,9 @@
             ${ticks.map((v) => `<line class="gridl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${fmt(v, { bare: true }).replace(/\.\d\d$/, '')}</text>`).join('')}
             ${labelDays.map((i) => `<text class="axis" x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === s.days - 1 ? 'end' : 'middle'}">${esc(ds(dayDate(i)))}</text>`).join('')}
             <line x1="${x(0)}" y1="${y(budget / s.days)}" x2="${x(s.days - 1)}" y2="${y(budget)}" stroke="var(--faint)" stroke-width="1.5" stroke-dasharray="5 5"/>
-            <path d="${area}" fill="var(--c-daily)" fill-opacity=".12"/>
-            <path d="${path}" fill="none" stroke="var(--c-daily)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
-            <circle cx="${x(s.cum.length - 1)}" cy="${y(spent)}" r="5" fill="var(--c-daily)" stroke="var(--surface)" stroke-width="2"/>
+            <path class="pace-area" d="${area}" fill="var(--c-daily)" fill-opacity=".12"/>
+            <path class="pace-line" pathLength="1" d="${path}" fill="none" stroke="var(--c-daily)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle class="pace-dot" cx="${x(s.cum.length - 1)}" cy="${y(spent)}" r="5" fill="var(--c-daily)" stroke="var(--surface)" stroke-width="2"/>
             <line class="cross" y1="${T}" y2="${H - B}"/>
             ${hits}
           </svg>
@@ -346,7 +391,7 @@
     const max = rows[0][1];
     return `<section>
       <div class="section-head"><h2>${t('cats.title')}</h2><span class="sub">${t('cats.total', { amount: fmt(total) })}</span></div>
-      <div class="card"><ul class="cats">${rows.map(([c, v]) => `<li>${tile(c === '__rest' ? 'autre' : c, 'daily')}<span class="cat-main"><span class="cat-top"><span>${esc(c === '__rest' ? t('cats.rest') : catLabel(c))}</span><span class="num">${fmt(v)}</span></span><span class="meter thin" style="--c:var(--c-daily)"><i style="width:${pct(v, max).toFixed(1)}%"></i></span></span><span class="cat-pct num">${Math.round((v / total) * 100)} %</span></li>`).join('')}</ul></div>
+      <div class="card"><ul class="cats">${rows.map(([c, v]) => `<li>${tile(c === '__rest' ? 'autre' : c, 'daily')}<span class="cat-main"><span class="cat-top"><span>${esc(c === '__rest' ? t('cats.rest') : catLabel(c))}</span><span class="num">${fmt(v)}</span></span><span class="meter thin" data-mk="cat-${esc(c)}" style="--c:var(--c-daily)"><i style="width:${pct(v, max).toFixed(1)}%"></i></span></span><span class="cat-pct num">${Math.round((v / total) * 100)} %</span></li>`).join('')}</ul></div>
     </section>`;
   }
 
@@ -450,7 +495,7 @@
       <div class="section-head"><h2>${t('fixed.title')}</h2><button class="link" data-action="new-fixed">${t('fixed.add')}</button></div>
       <div class="card">
         <div class="hero-top" style="margin-bottom:8px"><span class="small">${t('fixed.paidCount', { paid: `<b>${done.length}</b>`, total: fx.length })}</span><span class="small muted">${due ? t('fixed.due', { amount: `<b class="num" style="color:var(--ink)">${fmt(due)}</b>` }) : t('fixed.allPaid')}</span></div>
-        <div class="meter" style="--c:var(--fixed)"><i style="width:${pct(total - due, total).toFixed(1)}%"></i></div>
+        <div class="meter" data-mk="fixed" style="--c:var(--fixed)"><i style="width:${pct(total - due, total).toFixed(1)}%"></i></div>
         ${todo.length ? `<div class="group-label">${t('fixed.toPay')}</div><ul class="list">${todo.map(line).join('')}</ul>` : ''}
         ${done.length ? `<details class="paid"${todo.length ? '' : ' open'}><summary>${t('fixed.paidGroup', { n: done.length })} <span class="num" style="margin-left:auto">${fmt(done.reduce((s, f) => s - f.paid.amount, 0))}</span></summary><ul class="list">${done.map(line).join('')}</ul></details>` : ''}
       </div>
@@ -699,7 +744,7 @@
       if (w && !!(existing && existing.excluded) !== data.excluded) { const ex = { ...(s.excludedWords || {}) }; if (data.excluded) ex[w] = true; else delete ex[w]; s.excludedWords = ex; }
       s.updatedAt = Date.now();
       if (existing) { if (existing.fixedId && existing.cat !== cat) data.fixedId = undefined; F.updateTx(d, existing.id, data); }
-      else F.addTx(d, { ...data, source: 'manual' });
+      else motion.flash = { type: 'tx', id: F.addTx(d, { ...data, source: 'manual' }).id };
       save(); toast(t('txd.saved'));
     });
   }
@@ -889,6 +934,7 @@
     if (!r.ok) { toast(t('quick.err.' + (r.error || 'no-amount'))); return; }
     const acc = accounts().some((a) => a.id === d.settings.defaultAccount) ? d.settings.defaultAccount : null;
     const x = F.addTx(d, { date: r.date, amount: r.amount, label: r.label || catLabel(r.cat), cat: r.cat, accountId: acc, source });
+    motion.flash = { type: 'tx', id: x.id };
     save();
     toast(`${x.label} · ${fmt(x.amount)}${x.date !== F.today() ? ' · ' + ds(x.date) : ''}`, [
       { label: t('quick.edit'), fn: () => txDialog(x) },
@@ -919,6 +965,7 @@
     if (!c) return;
     const acc = accounts().some((a) => a.id === d.settings.defaultAccount) ? d.settings.defaultAccount : null;
     const x = F.addTx(d, { date: F.today(), amount: -Math.abs(c.amount), label: c.label, cat: c.cat, env: planned ? 'fixed' : F.chargeEnv(c), fixedId: c.id, accountId: acc, source: 'manual', paidMark: true });
+    motion.flash = { type: 'paid', id: x.id };
     save();
     toast(t('fixed.paidToast', { label: c.label }), [{ label: t('undo'), fn: () => { F.deleteTx(d, x.id); save(); } }]);
   }
