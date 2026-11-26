@@ -58,14 +58,14 @@
     if (!h || h.indexOf('access_token=') < 0) return false;
     const p = new URLSearchParams(h.slice(1));
     session = { access_token: p.get('access_token'), refresh_token: p.get('refresh_token'), expires_at: Math.floor(Date.now() / 1000) + +(p.get('expires_in') || 3600) };
-    try { session.email = JSON.parse(atob(session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).email; } catch (e) { /* jeton illisible : l'e-mail s'affichera après /user */ }
+    try { const b = session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); session.email = JSON.parse(atob(b + '='.repeat((4 - (b.length % 4)) % 4))).email; } catch (e) { /* jeton illisible : l'e-mail s'affichera après /user */ }
     ls.set(SKEY, session);
     try { root.history.replaceState(null, '', root.location.pathname + root.location.search); } catch (e) { root.location.hash = ''; }
     return true;
   }
   async function signIn(email) {
     if (!cloud) throw new Error('unavailable');
-    const r = await api('/auth/v1/otp', { method: 'POST', body: JSON.stringify({ email, create_user: true, options: { emailRedirectTo: root.location.origin + root.location.pathname } }) });
+    const r = await api('/auth/v1/otp', { method: 'POST', body: JSON.stringify({ email, create_user: true, options: { emailRedirectTo: root.location.origin + root.location.pathname.replace(/[^/]*$/, '') + 'app.html' } }) });
     if (!r.ok) throw new Error('send');
   }
   function signOutLocal() { session = null; ls.del(SKEY); ls.del(REVKEY); ls.del('franko.admin'); admin = false; adminChecked = false; rev = 0; plan = { tier: cfg.billing ? 'free' : 'beta' }; setStatus('local'); }

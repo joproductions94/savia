@@ -1579,6 +1579,13 @@
     render();
     if (got && got.length) toast(got.length === 1 ? t('wallet.added', { label: got[0].label, amount: fmt(got[0].amount) }) : t('wallet.addedN', { n: got.length }));
   });
+  // retour d'un lien de connexion refusé (expiré, déjà utilisé) : on l'explique et on ouvre Réglages pour en redemander un
+  const authErr = /(^|[#&])error_code=([^&]*)/.exec(location.hash);
+  if (authErr) {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+    ui.tab = 'settings'; saveUi();
+    setTimeout(() => toast(t(authErr[2] === 'otp_expired' ? 'auth.linkExpired' : 'auth.linkError')), 300);
+  }
   S.init();
   takeLinkPayment();
   render();
