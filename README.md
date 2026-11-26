@@ -50,6 +50,6 @@ node scripts/serve.js    # http://localhost:8080
 ## Compte propriétaire, tableau de bord et Pro offert
 
 1. Appliquer les migrations (dont `20261127000000_comp.sql`) et déployer les fonctions `admin` et `billing`.
-2. Dans Supabase › Edge Functions › Secrets, ajouter `ADMIN_EMAILS` avec votre adresse (plusieurs adresses : séparées par des virgules). L'adresse n'est jamais écrite dans le code.
+2. Déclarer votre adresse d'administrateur, au choix : dans l'éditeur SQL de Supabase, `insert into public.admins(email) values ('votre@adresse.ch');` ou le secret `ADMIN_EMAILS` (Edge Functions › Secrets ; plusieurs adresses séparées par des virgules). L'adresse n'est jamais écrite dans le code.
 3. Ouvrez l'app, connectez-vous avec cette adresse (lien magique). Réglages affiche « Compte propriétaire » : toutes les fonctions Pro sans abonnement, et le bouton **Tableau de bord administrateur** (`admin.html`).
 4. Dans le tableau de bord, la colonne « Pro offert » permet d'offrir ou de retirer Pro à un client (famille, testeurs). Le serveur l'enregistre dans `subscriptions.comp` ; un utilisateur ne peut jamais se l'accorder lui-même. Les Pro offerts ne comptent ni dans le MRR ni parmi les payants.

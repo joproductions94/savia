@@ -1,5 +1,5 @@
 // Franko — données du tableau de bord administrateur.
-// Réservé aux adresses listées dans le secret ADMIN_EMAILS (séparées par des virgules).
+// Réservé aux adresses listées dans la table public.admins ou dans le secret ADMIN_EMAILS (séparées par des virgules).
 // Actions : { action: 'me' } dit à tout utilisateur connecté s'il est administrateur (l'app affiche alors Pro et le lien
 // du tableau de bord) ; { action: 'comp', userId, on, note } offre ou retire Pro (administrateurs seulement) ;
 // sans action : les données du tableau de bord.
@@ -38,7 +38,9 @@ Deno.serve(async (req) => {
   const r = await fetch(env('SUPABASE_URL') + '/auth/v1/user', { headers: { Authorization: auth, apikey: env('SUPABASE_ANON_KEY') } });
   if (!r.ok) return json({ error: 'auth' }, 401);
   const me = await r.json();
-  const admins = env('ADMIN_EMAILS').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  // administrateurs : secret ADMIN_EMAILS et table public.admins (lisible seulement par le serveur)
+  const fromTable = await rest('admins?select=email').catch(() => []) as { email: string }[];
+  const admins = [...new Set(env('ADMIN_EMAILS').split(',').concat(fromTable.map((x) => x.email)).map((s) => s.trim().toLowerCase()).filter(Boolean))];
   const isAdmin = !!me.email && admins.includes(String(me.email).toLowerCase());
   let body: { action?: string; userId?: string; on?: boolean; note?: string } = {};
   try { body = await req.json(); } catch { /* corps vide : données du tableau de bord */ }
