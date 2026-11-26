@@ -159,13 +159,31 @@
     if (j.url) root.location.href = j.url;
   }
 
+  // Fournisseurs activés dans Supabase (Authentication › Providers) : seuls leurs boutons s'affichent.
+  let providers = ls.get('franko.providers', {});
+  async function loadProviders() {
+    try {
+      const r = await fetch(cfg.supabaseUrl + '/auth/v1/settings', { headers: { apikey: cfg.supabaseAnonKey } });
+      if (!r.ok) return;
+      const ext = (await r.json()).external || {};
+      const next = { apple: !!ext.apple, google: !!ext.google };
+      if (JSON.stringify(next) !== JSON.stringify(providers)) { providers = next; ls.set('franko.providers', next); emit(); }
+    } catch (e) { /* hors ligne : garde la dernière liste */ }
+  }
+  function signInWith(provider) {
+    if (!cloud) throw new Error('unavailable');
+    const back = root.location.origin + root.location.pathname.replace(/[^/]*$/, '') + 'app.html';
+    root.location.href = `${cfg.supabaseUrl}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(back)}`;
+  }
   function init() {
+    if (cloud) loadProviders();
     if (cloud && readHash()) status = 'busy';
     if (cloud && session) { sync(); root.addEventListener('online', sync); root.addEventListener('focus', () => { if (status !== 'busy') sync(); }); }
   }
 
   root.Store = {
-    init, save, replace, sync, signIn, signOut, billing, createIngestKey,
+    init, save, replace, sync, signIn, signInWith, signOut, billing, createIngestKey,
+    get providers() { return providers; },
     takeIngested() { const x = lastIngest; lastIngest = null; return x; },
     get ingestUrl() { return cloud ? cfg.supabaseUrl + '/functions/v1/ingest' : ''; },
     get doc() { return doc; }, get status() { return status; }, get session() { return session; }, get cloud() { return cloud; },

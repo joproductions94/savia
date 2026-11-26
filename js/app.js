@@ -1077,6 +1077,8 @@
   });
 
   // ---------- compte et abonnement ----------
+  const APPLE_LOGO = '<svg viewBox="0 0 24 24" aria-hidden="true" class="logo"><path fill="currentColor" stroke="none" d="M16.37 12.6c-.02-2.13 1.74-3.15 1.82-3.2-1-1.45-2.54-1.65-3.08-1.67-1.31-.13-2.56.77-3.22.77-.67 0-1.69-.75-2.78-.73-1.43.02-2.75.83-3.48 2.11-1.49 2.58-.38 6.4 1.07 8.49.71 1.02 1.55 2.17 2.65 2.13 1.07-.04 1.47-.69 2.76-.69 1.28 0 1.650.69 2.77.67 1.15-.02 1.87-1.04 2.57-2.07.81-1.18 1.14-2.33 1.16-2.39-.03-.01-2.22-.85-2.24-3.38zM14.26 6.3c.59-.71.98-1.7.87-2.69-.85.03-1.88.57-2.49 1.28-.55.63-1.03 1.64-.9 2.61.95.07 1.92-.48 2.52-1.2z"/></svg>';
+  const GOOGLE_LOGO = '<svg viewBox="0 0 24 24" aria-hidden="true" class="logo"><path fill="#4285F4" stroke="none" d="M21.6 12.23c0-.68-.06-1.33-.17-1.96H12v3.71h5.39a4.6 4.6 0 01-2 3.02v2.51h3.23c1.89-1.74 2.98-4.3 2.98-7.28z"/><path fill="#34A853" stroke="none" d="M12 22c2.7 0 4.96-.9 6.62-2.43l-3.23-2.51c-.9.6-2.04.96-3.39.96-2.6 0-4.81-1.76-5.6-4.12H3.07v2.59A10 10 0 0012 22z"/><path fill="#FBBC05" stroke="none" d="M6.4 13.9a6 6 0 010-3.8V7.51H3.07a10 10 0 000 8.98L6.4 13.9z"/><path fill="#EA4335" stroke="none" d="M12 5.98c1.47 0 2.79.5 3.83 1.5l2.86-2.87A9.6 9.6 0 0012 2 10 10 0 003.07 7.51L6.4 10.1C7.19 7.74 9.4 5.98 12 5.98z"/></svg>';
   function accountHtml() {
     const cfg = S.config, sess = S.session;
     const planLine = S.plan.comp ? `<p class="hint"><span class="pill ok">Pro</span> ${t(S.plan.owner ? 'plan.owner' : 'plan.comp')}</p>`
@@ -1085,7 +1087,13 @@
     let auth;
     if (!S.cloud) auth = `<p class="hint">${t('auth.local')} ${t('auth.unavailable')}</p>`;
     else if (sess) auth = `<p class="small">${t('auth.signedIn', { email: esc(sess.email || '') })}</p><div class="row-btns">${S.plan.tier === 'free' ? `<button class="btn primary" data-action="upgrade" data-i="month">${t('plan.upgrade')}</button>` : S.plan.tier === 'pro' && !S.plan.comp ? `<button class="btn" data-action="manage-billing">${t('plan.manage')}</button>` : ''}<button class="btn" data-action="sign-out">${t('auth.signOut')}</button></div>`;
-    else auth = `<p class="hint">${t('auth.local')}</p><form id="signIn" class="form"><label class="field">${t('auth.email')}<input name="email" type="email" autocomplete="email" required></label><button class="btn primary block">${t('auth.send')}</button></form>`;
+    else {
+      const pv = S.providers || {};
+      const oauth = (pv.apple ? `<button type="button" class="btn block oauth apple" data-action="oauth" data-p="apple">${APPLE_LOGO}<span>${t('auth.apple')}</span></button>` : '')
+        + (pv.google ? `<button type="button" class="btn block oauth google" data-action="oauth" data-p="google">${GOOGLE_LOGO}<span>${t('auth.google')}</span></button>` : '');
+      const form = `<form id="signIn" class="form"><label class="field">${t('auth.email')}<input name="email" type="email" autocomplete="email" required></label><button class="btn ${oauth ? '' : 'primary '}block">${t('auth.send')}</button></form>`;
+      auth = `<p class="hint">${t('auth.local')}</p>${oauth ? `<div class="stack-v">${oauth}</div><p class="or"><span>${t('auth.or')}</span></p>` : ''}${form}`;
+    }
     // le propriétaire (secret ADMIN_EMAILS, vérifié par le serveur) retrouve ici son tableau de bord
     const adminLink = S.isAdmin() ? `<a class="btn primary block" href="admin.html">${svg('invest')}${t('admin.open')}</a>` : '';
     return `<section class="card form"><h2>${t('set.account')}</h2>${planLine}${adminLink}${auth}</section>`;
@@ -1423,6 +1431,7 @@
     'new-income': () => txDialog({ kind: 'income' }),
     limit: (el) => limitDialog(el.dataset.cat),
     'scan-bill': () => scanDialog(),
+    oauth: (el) => { try { S.signInWith(el.dataset.p); } catch (e) { toast(t('auth.unavailable')); } },
     dossier: () => requirePro('dossier', () => dossierDialog()),
     'bonus-save': (el) => {
       const amt = Math.round(+el.dataset.amount || 0);
@@ -1582,7 +1591,7 @@
     if (got && got.length) toast(got.length === 1 ? t('wallet.added', { label: got[0].label, amount: fmt(got[0].amount) }) : t('wallet.addedN', { n: got.length }));
   });
   // retour d'un lien de connexion refusé (expiré, déjà utilisé) : on l'explique et on ouvre Réglages pour en redemander un
-  const authErr = /(^|[#&])error_code=([^&]*)/.exec(location.hash);
+  const authErr = /(^|[#&])error(?:_code)?=([^&]*)/.exec(location.hash);
   if (authErr) {
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
     ui.tab = 'settings'; saveUi();
