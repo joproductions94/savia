@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f4f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1413" media="(prefers-color-scheme: dark)">
+  <title>MonApp</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="config.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body class="no-quick">
+  <header class="top">
+    <a class="brand" href="./"><img src="icons/icon.svg" alt="" width="24" height="24"><span id="appName">MonApp</span></a>
+    <div class="muted small" id="subLabel"></div>
+    <span id="syncBadge" class="sync" hidden></span>
+  </header>
+  <main id="view" tabindex="-1"></main>
+  <button type="button" id="fab" class="fab" data-action="new-item" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="sr" data-t="home.add"></span></button>
+  <nav class="tabs three" id="tabs">
+    <button data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg><span data-t="tab.home"></span></button>
+    <button data-tab="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span data-t="tab.stats"></span></button>
+    <button data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span data-t="tab.settings"></span></button>
+  </nav>
+  <dialog id="dlg"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+</body>
+</html>

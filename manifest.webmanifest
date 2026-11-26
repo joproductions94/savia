@@ -1,0 +1,10 @@
+{
+  "name": "MonApp",
+  "short_name": "MonApp",
+  "description": "Décrivez votre app en une phrase.",
+  "start_url": "app.html",
+  "display": "standalone",
+  "background_color": "#f2f4f3",
+  "theme_color": "#0d5c57",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

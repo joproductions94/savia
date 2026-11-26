@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MonApp · Votre promesse en quelques mots</title>
+  <meta name="description" content="Décrivez en une phrase ce que l'app fait pour qui, et pourquoi c'est mieux qu'aujourd'hui.">
+  <meta property="og:title" content="MonApp · Votre promesse en quelques mots">
+  <meta property="og:description" content="Décrivez en une phrase ce que l'app fait pour qui.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0d5c57">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/site.css">
+  <script src="config.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.2 10h10.6L20 7H6"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5zM9 8h6M9 12h6M9 16h3"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.5-5.8L20 8M20 4v4h-4M20 12a8 8 0 01-13.5 5.8L4 16M4 20v-4h4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.5-3.2 8-7.5 9.5-4.3-1.5-7.5-5-7.5-9.5V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17"/></symbol>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="icons/icon.svg" alt="" width="32" height="32" style="border-radius:8px"><span class="app-name">MonApp</span></a>
+    <nav class="links" aria-label="Sections"><a href="#fonctions" data-i="nav.features"></a><a href="#prix" data-i="nav.pricing"></a><a href="#faq" data-i="nav.faq"></a></nav>
+    <div class="end">
+      <div class="langs" role="group" aria-label="Langue / Sprache / Lingua"><button data-lang="fr">FR</button><button data-lang="de">DE</button><button data-lang="it">IT</button></div>
+      <a class="signin" href="app.html" data-i="nav.signin"></a>
+      <a class="btn primary small" href="app.html" data-i="nav.cta"></a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <span class="eyebrow" data-in data-i="hero.eyebrow"></span>
+        <h1 data-in style="--d:0ms" data-i="hero.h1"></h1>
+        <p class="lead" data-in style="--d:80ms" data-i="hero.lead"></p>
+        <div class="cta" data-in style="--d:160ms"><a class="btn primary" href="app.html"><span data-i="hero.cta"></span><svg aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="btn" href="#comment" data-i="hero.cta2"></a></div>
+        <ul class="checks" data-in style="--d:220ms"><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c1"></span></li><li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-i="hero.c2"></span></li></ul>
+      </div>
+      <div class="stage">
+        <div class="device" role="img" data-i-aria="hero.aria">
+          <div class="screen">
+            <div class="ui-top"><span class="app-name">MonApp</span><span data-i="ui.today"></span></div>
+            <div class="ui-card">
+              <div class="ui-eyebrow"><span data-i="ui.progress"></span><span class="pill" data-i="ui.ok"></span></div>
+              <div class="ui-big num">2<small data-i="ui.of"></small></div>
+              <div class="ui-meter"><i></i></div>
+            </div>
+            <div class="ui-card ui-list">
+              <div class="ui-row"><span class="ui-ic"><svg><use href="#i-cart"/></svg></span><span><b data-i="ui.r1"></b><small data-i="ui.r1s"></small></span><span class="ui-state done"><i></i><span data-i="ui.done"></span></span></div>
+              <div class="ui-row"><span class="ui-ic"><svg><use href="#i-phone"/></svg></span><span><b data-i="ui.r2"></b><small data-i="ui.r2s"></small></span><span class="ui-state done"><i></i><span data-i="ui.done"></span></span></div>
+              <div class="ui-row"><span class="ui-ic"><svg><use href="#i-receipt"/></svg></span><span><b data-i="ui.r3"></b><small data-i="ui.r3s"></small></span><span class="ui-state"><i></i><span data-i="ui.todo"></span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt" id="fonctions">
+    <div class="wrap">
+      <div class="head center"><p class="kicker" data-i="feat.kicker"></p><h2 data-i="feat.h2"></h2><p class="lead" data-i="feat.lead"></p></div>
+      <div class="grid6 four">
+        <div class="mini"><span class="ui-ic" style="--c:var(--primary)"><svg><use href="#i-bolt"/></svg></span><h3 data-i="m1.t"></h3><p data-i="m1.p"></p></div>
+        <div class="mini"><span class="ui-ic" style="--c:var(--daily)"><svg><use href="#i-sync"/></svg></span><h3 data-i="m2.t"></h3><p data-i="m2.p"></p></div>
+        <div class="mini"><span class="ui-ic" style="--c:var(--savings)"><svg><use href="#i-shield"/></svg></span><h3 data-i="m3.t"></h3><p data-i="m3.p"></p></div>
+        <div class="mini"><span class="ui-ic" style="--c:var(--muted)"><svg><use href="#i-globe"/></svg></span><h3 data-i="m4.t"></h3><p data-i="m4.p"></p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="comment">
+    <div class="wrap">
+      <div class="head center"><p class="kicker" data-i="how.kicker"></p><h2 data-i="how.h2"></h2></div>
+      <div class="steps">
+        <div class="step"><div class="n">01</div><h3 data-i="how.1t"></h3><p data-i="how.1p"></p></div>
+        <div class="step"><div class="n">02</div><h3 data-i="how.2t"></h3><p data-i="how.2p"></p></div>
+        <div class="step"><div class="n">03</div><h3 data-i="how.3t"></h3><p data-i="how.3p"></p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt" id="prix">
+    <div class="wrap" style="text-align:center">
+      <div class="head center"><p class="kicker" data-i="price.kicker"></p><h2 data-i="price.h2"></h2><p class="lead" data-i="price.lead"></p></div>
+      <div class="billing" role="group"><button data-bill="month" aria-pressed="true" data-i="price.monthly"></button><button data-bill="year" aria-pressed="false"><span data-i="price.yearly"></span><span class="save" data-i="price.save"></span></button></div>
+      <div class="prices" style="text-align:left">
+        <div class="price"><h3 data-i="price.free"></h3><div class="amt">0<small>CHF</small></div><p class="per" data-i="price.forever"></p><a class="btn" href="app.html" data-i="price.freeCta"></a><ul data-list="price.freeL"></ul></div>
+        <div class="price pro"><span class="badge" data-i="price.badge"></span><h3>Pro</h3><div class="amt"><span id="pAmt">4.90</span><small id="pUnit"></small></div><p class="per" id="pPer"></p><a class="btn primary" href="app.html" data-i="price.proCta"></a><ul data-list="price.proL"></ul></div>
+      </div>
+      <p class="fineprint" data-i="price.fine"></p>
+    </div>
+  </section>
+
+  <section class="band" id="faq">
+    <div class="wrap">
+      <div class="head center"><p class="kicker">FAQ</p><h2 data-i="faq.h2"></h2></div>
+      <div class="faq" id="faqList"></div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="final">
+        <div><h2 data-i="final.h2"></h2><p data-i="final.p"></p></div>
+        <div class="cta"><a class="btn primary" href="app.html" data-i="final.cta"></a><a class="btn ghost" href="#prix" data-i="final.cta2"></a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="cols">
+      <div><a class="brand" href="./"><img src="icons/icon.svg" alt="" width="28" height="28" style="border-radius:7px"><span class="app-name">MonApp</span></a><p class="small" data-i="foot.tag"></p></div>
+      <div><h4 data-i="foot.product"></h4><ul><li><a href="#fonctions" data-i="nav.features"></a></li><li><a href="#prix" data-i="nav.pricing"></a></li><li><a href="app.html" data-i="nav.signin"></a></li></ul></div>
+      <div><h4 data-i="foot.help"></h4><ul><li><a href="#faq" data-i="nav.faq"></a></li><li><a href="#comment" data-i="foot.how"></a></li></ul></div>
+      <div><h4 data-i="foot.legal"></h4><ul><li><a href="legal.html" data-i="foot.terms"></a></li><li><a href="legal.html#donnees" data-i="foot.privacy"></a></li></ul></div>
+    </div>
+    <div class="bottom"><span>© <span id="year">2026</span> <span class="app-name">MonApp</span></span><span data-i="foot.made"></span></div>
+  </div>
+</footer>
+
+<script src="js/site.js"></script>
+</body>
+</html>

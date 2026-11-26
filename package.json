@@ -1,0 +1,9 @@
+{
+  "name": "monapp",
+  "private": true,
+  "description": "Modèle d'app web suisse : FR/DE/IT, hors ligne, comptes Supabase, abonnement Stripe, tableau de bord.",
+  "scripts": {
+    "dev": "node scripts/serve.js 8080",
+    "test": "node --test test/*.test.js"
+  }
+}
