@@ -1521,8 +1521,10 @@
       setting({ salary: sal, canton: fd.get('canton'), ...(pd >= 1 && pd <= 28 ? { payday: pd } : {}) });
     } else if (ev.target.id === 'signIn') {
       ev.preventDefault();
-      const email = String(new FormData(ev.target).get('email') || '').trim();
-      S.signIn(email).then(() => toast(t('auth.sent', { email }))).catch(() => toast(t('auth.unavailable')));
+      const email = String(new FormData(ev.target).get('email') || '').trim().toLowerCase();
+      // une adresse sans domaine complet (« nom@domaine » sans « .ch ») gaspillerait un envoi limité
+      if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) { toast(t('auth.invalid')); return; }
+      S.signIn(email).then(() => toast(t('auth.sent', { email }))).catch((e) => toast(t(!S.cloud ? 'auth.unavailable' : e && e.message === 'rate' ? 'auth.rate' : e && e.message === 'invalid' ? 'auth.invalid' : navigator.onLine === false ? 'auth.offline' : 'auth.sendErr')));
     }
   });
 

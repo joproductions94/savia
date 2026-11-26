@@ -66,7 +66,7 @@
   async function signIn(email) {
     if (!cloud) throw new Error('unavailable');
     const r = await api('/auth/v1/otp', { method: 'POST', body: JSON.stringify({ email, create_user: true, options: { emailRedirectTo: root.location.origin + root.location.pathname.replace(/[^/]*$/, '') + 'app.html' } }) });
-    if (!r.ok) throw new Error('send');
+    if (!r.ok) throw new Error(r.status === 429 ? 'rate' : r.status === 400 || r.status === 422 ? 'invalid' : 'send'); // le message affiché en dépend
   }
   function signOutLocal() { session = null; ls.del(SKEY); ls.del(REVKEY); ls.del('franko.admin'); admin = false; adminChecked = false; rev = 0; plan = { tier: cfg.billing ? 'free' : 'beta' }; setStatus('local'); }
   async function signOut() { try { if (session) await api('/auth/v1/logout', { method: 'POST' }); } catch (e) { /* déconnexion locale quand même */ } signOutLocal(); }
