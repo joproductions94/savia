@@ -475,3 +475,9 @@ html, body { overflow-x: clip; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.oauth.apple { background: #fff; color: #000; border-color: #fff; } }
 .or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .82rem; margin: 4px 0; }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* invitation à se connecter pour ne rien perdre */
+.card.keep { display: grid; gap: 10px; border-color: color-mix(in srgb, var(--accent, #2f6f5e) 35%, var(--line)); }
+.card.keep h2 { font-size: 1.05rem; margin: 0; }
+.card.keep p { margin: 0; }
+.card.keep .link { background: none; border: 0; color: var(--muted); font: inherit; font-size: .85rem; justify-self: center; padding: 6px; cursor: pointer; }

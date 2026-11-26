@@ -21,7 +21,7 @@
   const catLabel = (id) => t('cat.' + (F.CAT_BY_ID[id] ? id : 'autre'));
   const doc = () => S.doc;
   const ui = Object.assign({ tab: 'home', filter: 'all', offset: 0, theme: 'auto' }, S.ui.get('state', {}));
-  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang });
+  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater });
   function save() { S.save(); render(); }
   function setting(patch) { Object.assign(doc().settings, patch, { updatedAt: Date.now() }); save(); }
   const accounts = () => F.live(doc().accounts);
@@ -83,7 +83,7 @@
     $('#periodLabel').textContent = doc().settings.salary ? `${mLong.format(asDate(per.start))} · J-${per.daysLeft}` : '';
     renderBadge();
     const v = $('#view');
-    v.innerHTML = (VIEWS[ui.tab] || VIEWS.home)(st);
+    v.innerHTML = keepNotice() + (VIEWS[ui.tab] || VIEWS.home)(st);
     if (v.dataset.tab !== ui.tab) {
       // la vue glisse dans le sens de l'onglet choisi, comme une transition de prototype
       const order = ['home', 'tx', 'plan', 'settings'];
@@ -93,6 +93,16 @@
     }
     hideTip && hideTip();
     afterRender();
+  }
+  // Sans compte, les données ne vivent que dans ce navigateur (sur iPhone, Safari et l'écran d'accueil ne les partagent pas).
+  function keepNotice() {
+    if (S.handedOff) return `<section class="card keep done"><h2>${t('keep.done.title')}</h2><p class="muted">${t('keep.done.text')}</p></section>`;
+    if (!S.cloud || S.session || ui.tab === 'settings' || (ui.keepLater && Date.now() - ui.keepLater < 3 * 864e5)) return '';
+    const pv = S.providers || {};
+    const btns = (pv.google ? `<button type="button" class="btn block oauth google" data-action="oauth" data-p="google">${GOOGLE_LOGO}<span>${t('auth.google')}</span></button>` : '')
+      + (pv.apple ? `<button type="button" class="btn block oauth apple" data-action="oauth" data-p="apple">${APPLE_LOGO}<span>${t('auth.apple')}</span></button>` : '')
+      || `<button type="button" class="btn primary block" data-action="go-settings">${t('keep.go')}</button>`;
+    return `<section class="card keep"><h2>${t('keep.title')}</h2><p class="muted">${t(S.standalone ? 'keep.textHome' : 'keep.text')}</p><div class="stack-v">${btns}</div><button type="button" class="link" data-action="keep-later">${t('keep.later')}</button></section>`;
   }
   function renderBadge() {
     const b = $('#syncBadge');
@@ -1431,6 +1441,8 @@
     'new-income': () => txDialog({ kind: 'income' }),
     limit: (el) => limitDialog(el.dataset.cat),
     'scan-bill': () => scanDialog(),
+    'go-settings': () => { ui.tab = 'settings'; saveUi(); render(); },
+    'keep-later': () => { ui.keepLater = Date.now(); saveUi(); render(); },
     oauth: (el) => { try { S.signInWith(el.dataset.p); } catch (e) { toast(t('auth.unavailable')); } },
     dossier: () => requirePro('dossier', () => dossierDialog()),
     'bonus-save': (el) => {

@@ -18,7 +18,10 @@
   let status = cloud && session ? 'ok' : 'local';
   let plan = { tier: cfg.billing ? 'free' : 'beta', until: null };
   let admin = !!(session && ls.get('franko.admin', false)), adminChecked = false;
-  let listeners = [], timer = null, running = false, again = false, lastIngest = null;
+  let listeners = [], timer = null, running = false, again = false, lastIngest = null, handedOff = false;
+  // App ajoutée à l'écran d'accueil (iPhone) : son stockage est séparé de celui de Safari.
+  const standalone = () => { try { return root.navigator.standalone === true || root.matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } };
+  const HKEY = 'franko.handoff';
 
   function normalize(d) {
     const e = F.emptyDoc();
@@ -49,6 +52,7 @@
     if (!r.ok) { if (r.status === 400 || r.status === 401) signOutLocal(); return false; }
     const j = await r.json();
     session = { ...session, ...j, expires_at: Math.floor(Date.now() / 1000) + (j.expires_in || 3600) };
+    if (j.user && j.user.email) session.email = j.user.email;
     ls.set(SKEY, session);
     return true;
   }
@@ -60,8 +64,36 @@
     session = { access_token: p.get('access_token'), refresh_token: p.get('refresh_token'), expires_at: Math.floor(Date.now() / 1000) + +(p.get('expires_in') || 3600) };
     try { const b = session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); session.email = JSON.parse(atob(b + '='.repeat((4 - (b.length % 4)) % 4))).email; } catch (e) { /* jeton illisible : l'e-mail s'affichera après /user */ }
     ls.set(SKEY, session);
-    try { root.history.replaceState(null, '', root.location.pathname + root.location.search); } catch (e) { root.location.hash = ''; }
+    const q = new URLSearchParams(root.location.search), code = q.get('handoff');
+    q.delete('handoff');
+    try { root.history.replaceState(null, '', root.location.pathname + (q.toString() ? '?' + q : '')); } catch (e) { root.location.hash = ''; }
+    // Connexion demandée par l'app de l'écran d'accueil mais terminée ici (Safari) : on lui passe la session.
+    if (code && ls.get(HKEY, null) !== code) { handOff(code); return 'handoff'; }
+    if (code) ls.del(HKEY);
     return true;
+  }
+  async function handOff(code) {
+    try {
+      const r = await api('/rest/v1/rpc/put_handoff', { method: 'POST', body: JSON.stringify({ p_code: code, p_refresh: session.refresh_token }) });
+      if (!r.ok) throw new Error('handoff ' + r.status);
+      // la session part vers l'app : on l'oublie ici sans la révoquer (sinon l'app serait déconnectée)
+      session = null; ls.del(SKEY); ls.del(REVKEY); rev = 0; handedOff = true; setStatus('local'); emit();
+    } catch (e) { handedOff = false; status = 'ok'; sync(); } // échec : la connexion reste au moins valable ici
+  }
+  // L'app de l'écran d'accueil reprend la session déposée par Safari (une seule fois, code valable 10 minutes).
+  async function takeHandoff() {
+    const code = ls.get(HKEY, null);
+    if (!code || session) return false;
+    try {
+      const r = await api('/rest/v1/rpc/take_handoff', { method: 'POST', body: JSON.stringify({ p_code: code }) });
+      const token = r.ok ? await r.json() : null;
+      if (!token) return false;
+      session = { refresh_token: token, expires_at: 0 };
+      if (!(await refresh())) { session = null; return false; }
+      ls.del(HKEY); ls.set(SKEY, session);
+      sync();
+      return true;
+    } catch (e) { return false; }
   }
   async function signIn(email) {
     if (!cloud) throw new Error('unavailable');
@@ -172,18 +204,37 @@
   }
   function signInWith(provider) {
     if (!cloud) throw new Error('unavailable');
-    const back = root.location.origin + root.location.pathname.replace(/[^/]*$/, '') + 'app.html';
+    let back = root.location.origin + root.location.pathname.replace(/[^/]*$/, '') + 'app.html';
+    if (standalone()) {
+      const a = new Uint8Array(16); root.crypto.getRandomValues(a);
+      const code = [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
+      ls.set(HKEY, code); back += '?handoff=' + code;
+    }
     root.location.href = `${cfg.supabaseUrl}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(back)}`;
   }
   function init() {
     if (cloud) loadProviders();
-    if (cloud && readHash()) status = 'busy';
-    if (cloud && session) { sync(); root.addEventListener('online', sync); root.addEventListener('focus', () => { if (status !== 'busy') sync(); }); }
+    try { if (root.navigator.storage && root.navigator.storage.persist) root.navigator.storage.persist(); } catch (e) { /* demande facultative */ }
+    if (!cloud) return;
+    const h = readHash();
+    if (h === true) status = 'busy';
+    if (h === 'handoff') { /* la session part vers l'app de l'écran d'accueil */ } else if (session) sync(); else takeHandoff().then((ok) => { if (ok) emit(); });
+    const wake = () => {
+      if (!session) {
+        const s = ls.get(SKEY, null); // connexion terminée dans une autre fenêtre qui partage ce stockage
+        if (s) { session = s; sync(); } else takeHandoff().then((ok) => { if (ok) emit(); });
+      } else if (status !== 'busy') sync();
+    };
+    root.addEventListener('online', wake);
+    root.addEventListener('focus', wake);
+    root.addEventListener('visibilitychange', () => { if (!root.document.hidden) wake(); });
   }
 
   root.Store = {
     init, save, replace, sync, signIn, signInWith, signOut, billing, createIngestKey,
     get providers() { return providers; },
+    get handedOff() { return handedOff; },
+    get standalone() { return standalone(); },
     takeIngested() { const x = lastIngest; lastIngest = null; return x; },
     get ingestUrl() { return cloud ? cfg.supabaseUrl + '/functions/v1/ingest' : ''; },
     get doc() { return doc; }, get status() { return status; }, get session() { return session; }, get cloud() { return cloud; },
