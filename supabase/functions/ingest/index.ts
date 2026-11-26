@@ -13,6 +13,29 @@ async function sha256(s: string) {
   return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Montant seul (« 12.50 », « -1'046,20 ») ou noyé dans un texte : renvoie le montant normalisé et le reste du texte.
+export function splitAmount(raw: string) {
+  const t = raw.replace(/\u00a0/g, ' ').slice(0, 500);
+  if (/^[-+]?\s*(CHF|Fr\.?)?\s*[-+]?[\d'’ .,]+\s*(CHF|Fr\.?)?$/i.test(t.trim()) && /\d/.test(t)) return { amount: norm(t), rest: '' };
+  const re = /[-+]?\d{1,3}(?:['’ ]\d{3})*(?:[.,]\d{1,2})|[-+]?\d+(?:[.,]\d{1,2})?/g;
+  const hits = [...t.matchAll(re)];
+  if (!hits.length) return { amount: '', rest: '' };
+  // de préférence le nombre collé à CHF / Fr., sinon le premier avec des centimes, sinon le premier
+  const near = hits.find((m) => /(CHF|Fr\.?)\s*$/i.test(t.slice(0, m.index)) || /^\s*(CHF|Fr\.?)/i.test(t.slice(m.index! + m[0].length)));
+  const hit = near ?? hits.find((m) => /[.,]\d{2}$/.test(m[0])) ?? hits[0];
+  const rest = (t.slice(0, hit.index) + ' ' + t.slice(hit.index! + hit[0].length))
+    .replace(/\b(CHF|Fr\.?)(?=\s|$)/gi, ' ').split(/\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean)[0] ?? '';
+  return { amount: norm(hit[0]), rest: rest.replace(/^[-–:,·]+|[-–:,·]+$/g, '').trim() };
+}
+function norm(s: string) {
+  const neg = /-/.test(s);
+  let n = s.replace(/[^\d.,]/g, '');
+  const last = Math.max(n.lastIndexOf('.'), n.lastIndexOf(','));
+  if (last >= 0 && n.length - last - 1 <= 2) n = n.slice(0, last).replace(/[.,]/g, '') + '.' + n.slice(last + 1);
+  else n = n.replace(/[.,]/g, '');
+  return n ? (neg ? '-' : '') + n : '';
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST' && req.method !== 'GET') return json({ error: 'method' }, 405);
   const url = new URL(req.url);
@@ -33,11 +56,15 @@ Deno.serve(async (req) => {
       else if (type.includes('form')) p = { ...p, ...Object.fromEntries(await req.formData() as unknown as Iterable<[string, string]>) };
     } catch { return json({ error: 'body' }, 400); }
   }
-  const amount = String(p.amount ?? p.montant ?? '').trim();
-  if (!amount || !/\d/.test(amount)) return json({ error: 'amount' }, 400);
+  // iOS envoie parfois toute la transaction en texte (« 12,50 CHF Migros… ») : on en tire le montant et le commerçant.
+  const raw = String(p.amount ?? p.montant ?? p.text ?? '').trim();
+  const { amount, rest } = splitAmount(raw);
+  if (!amount) return json({ error: 'amount' }, 400);
+  const merchant = String(p.merchant ?? p.label ?? '').trim() || rest;
   const payload = {
-    amount: amount.slice(0, 32), merchant: String(p.merchant ?? p.label ?? '').slice(0, 120), card: String(p.card ?? '').slice(0, 60),
+    amount, merchant: merchant.slice(0, 120), card: String(p.card ?? '').slice(0, 60),
     date: String(p.date ?? '').slice(0, 32), type: String(p.type ?? '').slice(0, 16), id: String(p.id ?? '').slice(0, 80),
+    ...(raw !== amount ? { raw: raw.slice(0, 300) } : {}), // texte reçu tel quel, pour vérifier ce qu'envoie iOS
   };
 
   // limite quotidienne par utilisateur
