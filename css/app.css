@@ -481,3 +481,26 @@ html, body { overflow-x: clip; }
 .card.keep h2 { font-size: 1.05rem; margin: 0; }
 .card.keep p { margin: 0; }
 .card.keep .link { background: none; border: 0; color: var(--muted); font: inherit; font-size: .85rem; justify-self: center; padding: 6px; cursor: pointer; }
+
+/* premiers pas */
+.card.start { display: grid; gap: 12px; }
+.card.start h2 { font-size: 1.05rem; margin: 0; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.steps li > div { display: grid; gap: 8px; min-width: 0; padding-top: 3px; }
+.steps .dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 700; border: 1.5px solid var(--line); color: var(--muted); }
+.steps .dot svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.steps li.done .dot { background: var(--primary); border-color: var(--primary); color: #fff; }
+.steps li.done b { color: var(--muted); font-weight: 600; text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 50%, transparent); }
+.steps li.cur .dot { border-color: var(--primary); color: var(--primary); }
+.card.start > .link { justify-self: center; color: var(--muted); font-weight: 500; }
+/* analyse du mois, repliée */
+details.more { display: grid; gap: 14px; }
+details.more > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; padding: 16px 18px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--line); }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary span { display: grid; gap: 2px; }
+details.more > summary small { color: var(--muted); font-size: .8rem; }
+details.more > summary svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .2s ease; }
+details.more[open] > summary svg { transform: rotate(180deg); }
+.more-body { display: grid; gap: 18px; margin-top: 14px; }
+.card.start .chips { flex-wrap: wrap; overflow: visible; }

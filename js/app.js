@@ -21,7 +21,7 @@
   const catLabel = (id) => t('cat.' + (F.CAT_BY_ID[id] ? id : 'autre'));
   const doc = () => S.doc;
   const ui = Object.assign({ tab: 'home', filter: 'all', offset: 0, theme: 'auto' }, S.ui.get('state', {}));
-  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater });
+  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, startDone: ui.startDone });
   function save() { S.save(); render(); }
   function setting(patch) { Object.assign(doc().settings, patch, { updatedAt: Date.now() }); save(); }
   const accounts = () => F.live(doc().accounts);
@@ -97,6 +97,7 @@
   // Sans compte, les données ne vivent que dans ce navigateur (sur iPhone, Safari et l'écran d'accueil ne les partagent pas).
   function keepNotice() {
     if (S.handedOff) return `<section class="card keep done"><h2>${t('keep.done.title')}</h2><p class="muted">${t('keep.done.text')}</p></section>`;
+    if (ui.tab === 'home' && (!doc().settings.salary || !ui.startDone)) return ''; // premier écran : le salaire d'abord, puis le guide propose la sauvegarde // le guide « Pour bien démarrer » s'en charge
     if (!S.cloud || S.session || ui.tab === 'settings' || (ui.keepLater && Date.now() - ui.keepLater < 3 * 864e5)) return '';
     const pv = S.providers || {};
     const btns = (pv.google ? `<button type="button" class="btn block oauth google" data-action="oauth" data-p="google">${GOOGLE_LOGO}<span>${t('auth.google')}</span></button>` : '')
@@ -153,12 +154,30 @@
       const paidOut = f.fixedPaid + f.invest.deducted + f.savings.deducted;
       const recent = F.live(d.tx).slice().sort(byDateDesc).slice(0, 5);
       const e = p.emergency;
-      const setup = F.live(d.fixed).length ? '' : `<section class="card setup">
+      const hasFixed = F.live(d.fixed).length > 0, nTx = F.live(d.tx).filter((x) => x.amount < 0).length;
+      const chips = `<div class="chips">${t('setup.items').split('|').map((label, i) => `<button class="chip" data-action="new-fixed" data-label="${esc(label)}" data-cat="${SETUP_CATS[i]}">+ ${esc(label)}</button>`).join('')}<button class="chip" data-action="new-fixed">+ ${t('setup.other')}</button></div>`;
+      // Premiers pas : une étape à la fois, jusqu'à ce que le budget tourne (charges + 3 dépenses + sauvegarde)
+      const steps = [
+        { done: true, label: t('start.salary') },
+        { done: hasFixed, label: t('start.fixed'), body: `<p class="small muted">${t('setup.text')}</p>${chips}` },
+        { done: nTx > 0, label: t('start.first'), body: `<p class="small muted">${t('start.firstHint')}</p><button class="btn primary block" data-action="new-tx">${t('tx.newExpense')}</button>` },
+        ...(S.cloud ? [{ done: !!S.session, label: t('start.save'), body: `<p class="small muted">${t('start.saveHint')}</p>${(S.providers || {}).google ? `<button type="button" class="btn block oauth google" data-action="oauth" data-p="google">${GOOGLE_LOGO}<span>${t('auth.google')}</span></button>` : `<button class="btn block" data-action="go-settings">${t('keep.go')}</button>`}` }] : []),
+      ];
+      const showStart = !ui.startDone && steps.some((s) => !s.done);
+      const cur = steps.findIndex((s) => !s.done);
+      const start = showStart ? `<section class="card start">
+        <div class="hero-top"><h2>${t('start.title')}</h2><span class="pill">${steps.filter((s) => s.done).length}/${steps.length}</span></div>
+        <ol class="steps">${steps.map((s, i) => `<li class="${s.done ? 'done' : i === cur ? 'cur' : ''}"><span class="dot">${s.done ? CHECK : i + 1}</span><div><b>${s.label}</b>${i === cur && s.body ? s.body : ''}</div></li>`).join('')}</ol>
+        <button type="button" class="link" data-action="start-hide">${t('start.hide')}</button>
+      </section>` : '';
+      const setup = hasFixed || showStart ? '' : `<section class="card setup">
         <h2>${t('setup.title')}</h2>
         <p class="small muted">${t('setup.text')}</p>
         <div class="chips">${t('setup.items').split('|').map((label, i) => `<button class="chip" data-action="new-fixed" data-label="${esc(label)}" data-cat="${SETUP_CATS[i]}">+ ${esc(label)}</button>`).join('')}<button class="chip" data-action="new-fixed">+ ${t('setup.other')}</button></div>
       </section>`;
+      const moreBody = [forecastHtml(), bonusHtml(st), f.spentDaily > 0 ? paceHtml(st) : '', calcHtml(st), catHtml(st), taxCard()].join('');
       return `<div class="dash"><div class="col">
+      ${start}
       ${setup}
       <section class="card hero" aria-label="${esc(t('home.available'))}">
         <div class="hero-top"><span class="eyebrow">${t('home.available')}</span><span class="pill ${status[0]}">${t(status[1])}</span></div>
@@ -173,20 +192,17 @@
           <div><dt>${t('home.pending')}</dt><dd class="num">${fmt(f.pending, { bare: true })}</dd></div>
         </dl>
       </section>
-      ${forecastHtml()}
-      ${bonusHtml(st)}
       ${al.length ? `<section><div class="section-head"><h2>${t('home.watch')}</h2></div><div class="card notes">${al.map((a) => `<div class="note ${a.level}">${esc(alertText(a))}</div>`).join('')}</div></section>` : ''}
-      ${paceHtml(st)}
-      ${calcHtml(st)}
-      </div><div class="col">
-      ${checksHtml(st)}
-      ${fixedSection(st)}
-      ${catHtml(st)}
-      ${taxCard()}
-      <section>
+      ${recent.length ? `<section>
         <div class="section-head"><h2>${t('recent.title')}</h2><button class="link" data-action="tab" data-tab="tx">${t('recent.all')}</button></div>
-        <div class="card flush">${recent.length ? `<ul class="list">${recent.map(txRow).join('')}</ul>` : `<p class="empty">${t('recent.empty')}</p>`}</div>
-      </section>
+        <div class="card flush"><ul class="list">${recent.map(txRow).join('')}</ul></div>
+      </section>` : ''}
+      </div><div class="col">
+      ${nTx || hasFixed ? checksHtml(st) : ''}
+      ${showStart || !hasFixed ? '' : fixedSection(st)}
+      <details class="more" id="moreDetails" ${ui.moreOpen ? 'open' : ''}>
+        <summary><span><b>${t('more.title')}</b><small>${t('more.hint')}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="more-body">${moreBody}
       <section class="card gauge">
         <div class="ring" style="--p:${pct(e.fund, e.target).toFixed(0)}"><span>${e.covered}&nbsp;${t('fund.months')}</span></div>
         <div>
@@ -194,7 +210,7 @@
           <div class="small">${t('fund.text', { fund: `<b class="num">${fmt(e.fund)}</b>`, target: fmt(e.target), months: e.months })}</div>
           <div class="small muted">${p.shifted ? t('fund.shift', { amount: fmt(p.shifted) }) : e.level === 'ok' ? t('fund.ok') : t('fund.building')}</div>
         </div>
-      </section></div></div>`;
+      </section></div></details></div></div>`;
     },
 
     tx() {
@@ -345,6 +361,8 @@
   }
   function afterRender() {
     const quiet = reduceMotion.matches;
+    const more = $('#moreDetails');
+    if (more) more.addEventListener('toggle', () => { ui.moreOpen = more.open; saveUi(); });
     // le chiffre principal se compte depuis sa valeur précédente
     const n = $('#heroNum');
     if (n) {
@@ -1441,6 +1459,7 @@
     'new-income': () => txDialog({ kind: 'income' }),
     limit: (el) => limitDialog(el.dataset.cat),
     'scan-bill': () => scanDialog(),
+    'start-hide': () => { ui.startDone = true; saveUi(); render(); },
     'go-settings': () => { ui.tab = 'settings'; saveUi(); render(); },
     'keep-later': () => { ui.keepLater = Date.now(); saveUi(); render(); },
     oauth: (el) => { try { S.signInWith(el.dataset.p); } catch (e) { toast(t('auth.unavailable')); } },
