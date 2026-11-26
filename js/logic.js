@@ -90,7 +90,7 @@
   const CAT_BY_ID = Object.fromEntries(CATS.map((c) => [c.id, c]));
   const ENVS = ['fixed', 'daily', 'savings', 'invest'];
   const envOf = (cat) => (CAT_BY_ID[cat] ? CAT_BY_ID[cat].env : 'daily');
-  // Une charge fixe de catégorie « investissement » ou « épargne » remplit cette enveloppe (Swisslife, 3a, ordre permanent).
+  // Une charge fixe de catégorie « investissement » ou « épargne » remplit cette enveloppe (assurance 3a, ordre permanent).
   const chargeEnv = (c) => { const e = envOf(c && c.cat); return e === 'invest' || e === 'savings' ? e : 'fixed'; };
   // Facture annuelle (Serafe, RC/ménage, assurance auto, taxe véhicule…) : un douzième est mis de côté chaque mois,
   // et la facture se paie avec cette réserve le mois venu, comme le ferait un comptable avec un compte de provisions.

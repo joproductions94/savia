@@ -59,7 +59,7 @@ test('mois budgétaire : du salaire reçu au suivant, nommé d’après le mois 
 
 test('seuls les paiements faits sont comptés', () => {
   const d = doc({ settings: { salary: 3000 } });
-  d.fixed = [{ id: 'loyer', label: 'Loyer', amount: 1000, cat: 'logement' }, { id: 'swl', label: 'Swisslife', amount: 150, cat: 'invest' }];
+  d.fixed = [{ id: 'loyer', label: 'Loyer', amount: 1000, cat: 'logement' }, { id: 'swl', label: 'Prévoyance Exemple', amount: 150, cat: 'invest' }];
   F.addTx(d, { date: '2026-10-20', amount: 3000, label: 'Employeur', cat: 'revenu' });
   F.addTx(d, { date: '2026-10-21', amount: -100, label: 'Migros', cat: 'courses' });
   F.addTx(d, { date: '2026-10-21', amount: -500, label: 'Logiciel pro', cat: 'autre', excluded: true });
@@ -68,7 +68,7 @@ test('seuls les paiements faits sont comptés', () => {
   F.addTx(d, { date: '2026-10-22', amount: -1000, label: 'Loyer', cat: 'logement' });
   f = F.monthState(d, '2026-10-22').flow;
   assert.deepStrictEqual([f.fixedPaid, f.left, f.pending, f.leftAfterAll], [1000, 1900, 150, 1750]);
-  F.addTx(d, { date: '2026-10-23', amount: -150, label: 'SWISS LIFE SA', cat: 'invest' });
+  F.addTx(d, { date: '2026-10-23', amount: -150, label: 'PREVOYANCE EXEMPLE SA', cat: 'invest' });
   const st = F.monthState(d, '2026-10-23');
   assert.strictEqual(st.flow.invest.deducted, 150);
   assert.strictEqual(st.flow.pending, 0);
@@ -133,7 +133,7 @@ test('diviser un paiement : la part loyer paie la charge, le solde ne bouge pas'
 
 test('relevé CSV (Neon) : lecture, doublons, saisie manuelle confirmée, charge fixe, hors budget', () => {
   const csv = '"Date";"Amount";"Original amount";"Original currency";"Exchange rate";"Description";"Subject";"Category";"Tags";"Wise";"Spaces"\n' +
-    '"2026-10-20";"4623.80";"";"";"";"KBD Parquets Sarl";"Salaire";"income";"";"no";"no"\n' +
+    '"2026-10-20";"4623.80";"";"";"";"Exemple SA";"Salaire";"income";"";"no";"no"\n' +
     '"2026-10-21";"-172.96";"";"";"";"EDIBS BUSINESS SCHOOL";"";"education";"";"no";"no"\n' +
     '"2026-10-21";"-16.90";"";"";"";"HBO";"";"entertainment";"";"no";"no"\n' +
     '"2026-10-06";"-19.87";"";"";"";"WINDSOR.AI";"";"shopping";"";"no";"no"\n' +
@@ -214,9 +214,9 @@ test('rentrées : reconnues dans les trois langues, ou forcées', () => {
 
 test('Apple Pay / Wallet : un paiement reçu par lien est ajouté une seule fois et confirmé par le relevé', () => {
   const d = doc();
-  d.accounts = [{ id: 'n', name: 'Neon', kind: 'courant', balance: 100 }];
+  d.accounts = [{ id: 'n', name: 'Compte courant', kind: 'courant', balance: 100 }];
   d.settings.defaultAccount = 'n';
-  const p = new URLSearchParams('amount=CHF%2012,50&merchant=Migros%20Renens&card=Neon&date=2026-11-24');
+  const p = new URLSearchParams('amount=CHF%2012,50&merchant=Migros%20Centre&card=Visa&date=2026-11-24');
   const item = F.parseIngest(p, { today: '2026-11-25' });
   assert.deepStrictEqual([item.amount, item.cat, item.date, item.source], [-12.5, 'courses', '2026-11-24', 'wallet']);
   const x = F.ingest(d, item);
@@ -224,7 +224,7 @@ test('Apple Pay / Wallet : un paiement reçu par lien est ajouté une seule fois
   assert.strictEqual(F.ingest(d, F.parseIngest(p, { today: '2026-11-25' })), null, 'doublon ignoré');
   assert.strictEqual(d.accounts[0].balance, 87.5);
   assert.strictEqual(F.parseIngest({ amount: '' }).ok, false);
-  const rows = F.reconcile(d, 'n', [{ date: '2026-11-25', amount: -12.5, label: 'MIGROS RENENS' }]);
+  const rows = F.reconcile(d, 'n', [{ date: '2026-11-25', amount: -12.5, label: 'MIGROS CENTRE' }]);
   assert.strictEqual(rows[0].dup, 'probable');
 });
 
@@ -291,7 +291,7 @@ test('3e pilier : versements de l’année, reste jusqu’au plafond', () => {
 
 test('3e pilier : l’ordre permanent restant est compté comme prévu', () => {
   const d = baseDoc();
-  d.fixed.push({ id: 'p3', label: '3e pilier Swiss Life', amount: 300, cat: 'invest', updatedAt: 1 });
+  d.fixed.push({ id: 'p3', label: '3e pilier Prévoyance Exemple', amount: 300, cat: 'invest', updatedAt: 1 });
   const r = F.pillar3a(d, '2026-11-26');
   assert.equal(r.scheduled, 600); // novembre et décembre pas encore versés
   assert.equal(r.left, 7258 - 600);

@@ -15,7 +15,7 @@
       'ui.pace': 'Rythme du mois', 'ui.paceNote': '96 CHF dépensés sur 2’299 disponibles', 'ui.next': 'Décembre', 'ui.nextSalary': 'Salaire prévu', 'ui.nextFixed': 'Charges fixes', 'ui.nextGift': 'Cadeaux de Noël', 'ui.nextDaily': 'Pour le quotidien', 'ui.where': 'Où part l’argent', 'ui.catFood': 'Courses', 'ui.catOut': 'Sorties', 'ui.catMove': 'Transports', 'ui.noted': 'noté le 25 novembre', 'ui.addPlanned': 'Noter une dépense de décembre',
       'fl.1t': 'Loyer payé', 'fl.1s': 'confirmé par le relevé', 'fl.2t': 'Impôts : 598 CHF par mois', 'fl.2s': 'estimés pour Fribourg',
       banks: 'Importe les relevés CSV de', 'truth.kicker': 'Pourquoi Franko', 'truth.h2': 'Le solde de votre compte vous rassure trop tôt.',
-      'truth.lead': 'Le 22, il reste 929 francs sur le compte. L’assurance maladie, les impôts et l’électricité ne sont pas encore passés. Une fois payés, il manque 380 francs.',
+      'truth.lead': 'Le 22, il reste 1’046 francs sur le compte. L’assurance maladie, les impôts et l’électricité ne sont pas encore passés. Une fois payés, il manque 266 francs.',
       'truth.1': '<b>Franko déduit un paiement quand il est fait</b>, au moment où vous le cochez ou quand votre relevé le confirme.',
       'truth.2': '<b>Ce qui reste à payer est affiché à part.</b> Vous voyez votre vrai solde avant la fin du mois, pas après.',
       'led.bank': 'Sur le compte aujourd’hui', 'led.bankS': 'ce que montre l’app de la banque', 'led.bills': 'Factures pas encore payées', 'led.billsS': 'impôts, assurance, téléphone, électricité', 'led.real': 'Ce qui vous reste vraiment',
@@ -27,7 +27,7 @@
       'v1.salary': 'Salaire reçu', 'v1.fixed': 'Charges payées', 'v1.fixedS': '4 sur 8', 'v1.after': 'Reste après charges payées', 'v1.daily': 'Dépensé au quotidien', 'v1.dailyS': 'depuis le 20 nov.', 'v1.now': 'Disponible maintenant', 'v1.pending': 'Pas encore payé', 'v1.pendingS': 'impôts, téléphone, électricité', 'v1.all': 'Après tout payé',
       'f2.t': 'Vos relevés bancaires, sans doublons', 'f2.p': 'Exportez le CSV de votre e-banking et ouvrez-le dans Franko. Les dépenses déjà notées, les charges payées et les virements entre vos comptes sont reconnus.',
       'f2.l': ['PostFinance, UBS, Raiffeisen, banques cantonales, Neon, Revolut', 'Si vous corrigez une catégorie, Franko la retient pour la prochaine fois', 'Le fichier est lu sur votre téléphone. Franko ne se connecte pas à votre banque'],
-      'v2.title': 'Relevé Neon · novembre', 'v2.read': '24 lignes', 'v2.dup': '✓ déjà noté', 'v2.cat': 'Courses', 'v2.transfer': 'virement',
+      'v2.title': 'Relevé bancaire · novembre', 'v2.read': '24 lignes', 'v2.dup': '✓ déjà noté', 'v2.cat': 'Courses', 'v2.transfer': 'virement',
       'f3.t': 'Vos impôts, mis de côté chaque mois', 'f3.p': 'Franko calcule l’impôt fédéral et estime l’impôt cantonal avec vos déductions. Vous mettez de côté le bon montant chaque mois, et la facture d’avril ne surprend plus personne.',
       'f3.l': ['Pension alimentaire, frais de garde et 3e pilier déduits', 'Le coefficient de votre commune est pris en compte'],
       'v3.title': 'Impôts 2026', 'v3.income': 'Revenu net annuel', 'v3.ded': 'Déductions', 'v3.taxable': 'Revenu imposable', 'v3.canton': 'Impôt cantonal', 'v3.commune': 'Impôt communal', 'v3.ifd': 'Impôt fédéral direct', 'v3.month': 'Par mois',
@@ -68,7 +68,7 @@
       'ui.pace': 'Ausgabentempo', 'ui.paceNote': '96 CHF von 2’299 ausgegeben', 'ui.next': 'Dezember', 'ui.nextSalary': 'Erwarteter Lohn', 'ui.nextFixed': 'Fixkosten', 'ui.nextGift': 'Weihnachtsgeschenke', 'ui.nextDaily': 'Für den Alltag', 'ui.where': 'Wohin das Geld geht', 'ui.catFood': 'Einkäufe', 'ui.catOut': 'Ausgang', 'ui.catMove': 'Verkehr', 'ui.noted': 'notiert am 25. November', 'ui.addPlanned': 'Ausgabe für Dezember notieren',
       'fl.1t': 'Miete bezahlt', 'fl.1s': 'vom Kontoauszug bestätigt', 'fl.2t': 'Steuern: 598 CHF pro Monat', 'fl.2s': 'geschätzt für Freiburg',
       banks: 'Importiert CSV-Auszüge von', 'truth.kicker': 'Warum Franko', 'truth.h2': 'Ihr Kontostand beruhigt Sie zu früh.',
-      'truth.lead': 'Am 22. sind noch 929 Franken auf dem Konto. Krankenkasse, Steuern und Strom sind noch nicht abgebucht. Sind sie bezahlt, fehlen 380 Franken.',
+      'truth.lead': 'Am 22. sind noch 1’046 Franken auf dem Konto. Krankenkasse, Steuern und Strom sind noch nicht abgebucht. Sind sie bezahlt, fehlen 266 Franken.',
       'truth.1': '<b>Franko zieht eine Zahlung ab, wenn sie erledigt ist</b>, sobald Sie sie abhaken oder der Kontoauszug sie bestätigt.',
       'truth.2': '<b>Was noch offen ist, steht separat.</b> Sie sehen Ihren echten Stand vor Monatsende, nicht danach.',
       'led.bank': 'Heute auf dem Konto', 'led.bankS': 'was die Bank-App zeigt', 'led.bills': 'Noch offene Rechnungen', 'led.billsS': 'Steuern, Krankenkasse, Telefon, Strom', 'led.real': 'Was Ihnen wirklich bleibt',
@@ -80,7 +80,7 @@
       'v1.salary': 'Erhaltener Lohn', 'v1.fixed': 'Bezahlte Fixkosten', 'v1.fixedS': '4 von 8', 'v1.after': 'Rest nach bezahlten Fixkosten', 'v1.daily': 'Im Alltag ausgegeben', 'v1.dailyS': 'seit dem 20. Nov.', 'v1.now': 'Jetzt verfügbar', 'v1.pending': 'Noch nicht bezahlt', 'v1.pendingS': 'Steuern, Telefon, Strom', 'v1.all': 'Wenn alles bezahlt ist',
       'f2.t': 'Ihre Kontoauszüge, ohne Doppelte', 'f2.p': 'Exportieren Sie das CSV aus dem E-Banking und öffnen Sie es in Franko. Bereits erfasste Ausgaben, bezahlte Fixkosten und Überträge zwischen Ihren Konten werden erkannt.',
       'f2.l': ['PostFinance, UBS, Raiffeisen, Kantonalbanken, Neon, Revolut', 'Korrigieren Sie eine Kategorie, merkt sich Franko das fürs nächste Mal', 'Die Datei wird auf Ihrem Telefon gelesen. Franko verbindet sich nicht mit Ihrer Bank'],
-      'v2.title': 'Auszug Neon · November', 'v2.read': '24 Zeilen', 'v2.dup': '✓ bereits erfasst', 'v2.cat': 'Einkauf', 'v2.transfer': 'Übertrag',
+      'v2.title': 'Kontoauszug · November', 'v2.read': '24 Zeilen', 'v2.dup': '✓ bereits erfasst', 'v2.cat': 'Einkauf', 'v2.transfer': 'Übertrag',
       'f3.t': 'Ihre Steuern, jeden Monat zurückgelegt', 'f3.p': 'Franko berechnet die Bundessteuer und schätzt die Kantonssteuer mit Ihren Abzügen. Sie legen jeden Monat den richtigen Betrag zurück, und die Rechnung im April überrascht niemanden mehr.',
       'f3.l': ['Unterhalt, Betreuungskosten und Säule 3a abgezogen', 'Der Steuerfuss Ihrer Gemeinde wird berücksichtigt'],
       'v3.title': 'Steuern 2026', 'v3.income': 'Jährliches Nettoeinkommen', 'v3.ded': 'Abzüge', 'v3.taxable': 'Steuerbares Einkommen', 'v3.canton': 'Kantonssteuer', 'v3.commune': 'Gemeindesteuer', 'v3.ifd': 'Direkte Bundessteuer', 'v3.month': 'Pro Monat',
@@ -121,7 +121,7 @@
       'ui.pace': 'Ritmo del mese', 'ui.paceNote': '96 CHF spesi su 2’299 disponibili', 'ui.next': 'Dicembre', 'ui.nextSalary': 'Salario previsto', 'ui.nextFixed': 'Spese fisse', 'ui.nextGift': 'Regali di Natale', 'ui.nextDaily': 'Per il quotidiano', 'ui.where': 'Dove vanno i soldi', 'ui.catFood': 'Spesa', 'ui.catOut': 'Uscite', 'ui.catMove': 'Trasporti', 'ui.noted': 'annotato il 25 novembre', 'ui.addPlanned': 'Annota una spesa di dicembre',
       'fl.1t': 'Affitto pagato', 'fl.1s': 'confermato dall’estratto', 'fl.2t': 'Imposte: 598 CHF al mese', 'fl.2s': 'stimate per Friburgo',
       banks: 'Importa gli estratti CSV di', 'truth.kicker': 'Perché Franko', 'truth.h2': 'Il saldo del conto la rassicura troppo presto.',
-      'truth.lead': 'Il 22 restano 929 franchi sul conto. Cassa malati, imposte ed elettricità non sono ancora addebitate. Una volta pagate, mancano 380 franchi.',
+      'truth.lead': 'Il 22 restano 1’046 franchi sul conto. Cassa malati, imposte ed elettricità non sono ancora addebitate. Una volta pagate, mancano 266 franchi.',
       'truth.1': '<b>Franko deduce un pagamento quando è fatto</b>, appena lo spunta o quando l’estratto lo conferma.',
       'truth.2': '<b>Ciò che resta da pagare è indicato a parte.</b> Vede il suo saldo reale prima della fine del mese, non dopo.',
       'led.bank': 'Oggi sul conto', 'led.bankS': 'ciò che mostra l’app della banca', 'led.bills': 'Fatture non ancora pagate', 'led.billsS': 'imposte, cassa malati, telefono, elettricità', 'led.real': 'Ciò che le resta davvero',
@@ -133,7 +133,7 @@
       'v1.salary': 'Salario ricevuto', 'v1.fixed': 'Spese pagate', 'v1.fixedS': '4 su 8', 'v1.after': 'Resta dopo le spese pagate', 'v1.daily': 'Speso nel quotidiano', 'v1.dailyS': 'dal 20 nov.', 'v1.now': 'Disponibile ora', 'v1.pending': 'Non ancora pagato', 'v1.pendingS': 'imposte, telefono, elettricità', 'v1.all': 'Dopo aver pagato tutto',
       'f2.t': 'I suoi estratti, senza doppioni', 'f2.p': 'Esporti il CSV dall’e-banking e lo apra in Franko. Spese già annotate, spese fisse pagate e giroconti tra i suoi conti vengono riconosciuti.',
       'f2.l': ['PostFinance, UBS, Raiffeisen, BancaStato, Neon, Revolut', 'Se corregge una categoria, Franko se la ricorda per la volta dopo', 'Il file è letto sul suo telefono. Franko non si collega alla sua banca'],
-      'v2.title': 'Estratto Neon · novembre', 'v2.read': '24 righe', 'v2.dup': '✓ già annotato', 'v2.cat': 'Spesa', 'v2.transfer': 'giroconto',
+      'v2.title': 'Estratto conto · novembre', 'v2.read': '24 righe', 'v2.dup': '✓ già annotato', 'v2.cat': 'Spesa', 'v2.transfer': 'giroconto',
       'f3.t': 'Le imposte, messe da parte ogni mese', 'f3.p': 'Franko calcola l’imposta federale e stima quella cantonale con le sue deduzioni. Ogni mese mette da parte l’importo giusto, e la fattura di aprile non sorprende più nessuno.',
       'f3.l': ['Alimenti, spese di custodia e 3° pilastro dedotti', 'Il moltiplicatore del suo comune è considerato'],
       'v3.title': 'Imposte 2026', 'v3.income': 'Reddito netto annuo', 'v3.ded': 'Deduzioni', 'v3.taxable': 'Reddito imponibile', 'v3.canton': 'Imposta cantonale', 'v3.commune': 'Imposta comunale', 'v3.ifd': 'Imposta federale diretta', 'v3.month': 'Al mese',
@@ -296,7 +296,7 @@
   if (!reduce && 'IntersectionObserver' in window) {
     const below = (el) => el.getBoundingClientRect().top > innerHeight * 0.92;
     const onShow = (el) => {
-      if (el.id === 'ledgerBox') countTo(document.getElementById('ledReal'), -379.92, 0, 1000);
+      if (el.id === 'ledgerBox') countTo(document.getElementById('ledReal'), -266.20, 0, 1000);
       el.querySelectorAll('[data-count]').forEach((c) => countTo(c, num(c.dataset.count), 0, 900, c.dataset.dec ? +c.dataset.dec : 0));
       const ins = el.querySelector('#v4garage');
       if (ins) {
