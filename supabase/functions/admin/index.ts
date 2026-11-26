@@ -8,9 +8,11 @@
 // Déployer : supabase functions deploy admin --no-verify-jwt (le jeton est vérifié ici, avec la liste d'administrateurs).
 
 const env = (k: string) => Deno.env.get(k) ?? '';
-const SITE = env('SITE_URL') || 'https://franko.ch';
-const cors = { 'Access-Control-Allow-Origin': SITE, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+// Adresses autorisées à appeler la fonction depuis un navigateur : le secret SITE_URL (plusieurs : virgules) et les adresses publiques de l'app.
+const ORIGINS = [...env('SITE_URL').split(','), 'https://franko-9fu.pages.dev', 'https://franko.ch'].map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+// En-têtes CORS propres à chaque requête : l'adresse d'origine si elle est autorisée, sinon la première de la liste.
+const originOf = (req: Request) => { const o = req.headers.get('Origin') ?? ''; return ORIGINS.includes(o) ? o : ORIGINS[0]; };
+const corsFor = (site: string) => ({ 'Access-Control-Allow-Origin': site, 'Vary': 'Origin', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' });
 const service = { apikey: env('SUPABASE_SERVICE_ROLE_KEY'), Authorization: 'Bearer ' + env('SUPABASE_SERVICE_ROLE_KEY') };
 
 async function rest(path: string) {
@@ -32,6 +34,8 @@ async function allUsers() {
 }
 
 Deno.serve(async (req) => {
+  const SITE = originOf(req), cors = corsFor(SITE); // retour après paiement : vers l'adresse d'où vient l'utilisateur
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
   const auth = req.headers.get('Authorization') ?? '';
