@@ -952,13 +952,14 @@
     const others = live(doc.accounts).filter((a) => a.id !== accountId);
     const used = new Set();
     const learned = doc.settings && doc.settings.learned;
+    const claimed = new Set(); // charges déjà attribuées à une ligne de ce relevé
     return rows.map((r) => {
       const out = { ...r };
       const exact = tx.find((t) => !used.has(t.id) && t.accountId === accountId && (t.source === 'import' || t.bankConfirmed) && t.date === r.date && cents(t.amount) === cents(r.amount));
       if (exact) { out.dup = 'exact'; out.matchId = exact.id; used.add(exact.id); }
       else {
         const prob = tx.find((t) => !used.has(t.id) && !t.bankConfirmed && t.source !== 'import' && Math.sign(t.amount) === Math.sign(r.amount) &&
-          ((cents(t.amount) === cents(r.amount) && Math.abs(diffDays(t.date, r.date)) <= 3) ||
+          ((cents(t.amount) === cents(r.amount) && diffDays(r.date, t.date) >= -3 && diffDays(r.date, t.date) <= 7) ||
            (t.fixedId && Math.abs(diffDays(t.date, r.date)) <= 20 && Math.abs(t.amount - r.amount) <= Math.abs(r.amount) * 0.1)));
         if (prob) { out.dup = 'probable'; out.matchId = prob.id; used.add(prob.id); if (prob.fixedId) out.fixedId = prob.fixedId; }
       }
@@ -970,8 +971,10 @@
       if (!out.dup && r.amount < 0 && !out.transfer) {
         const per = periodFor(doc, r.date);
         const paid = new Set(all.filter((x) => x.fixedId && x.date >= per.start && x.date <= per.end).map((x) => x.fixedId));
-        const c = matchFixed(doc, { amount: r.amount, label: r.label, cat }, paid, learned);
-        if (c) out.fixedId = c.id;
+        for (const id of claimed) paid.add(id);
+        const pl = matchPlanned(doc, { amount: r.amount, label: r.label, bankLabel: r.label, date: r.date });
+        const c = pl && !claimed.has(pl.id) ? pl : matchFixed(doc, { amount: r.amount, label: r.label, cat }, paid, learned);
+        if (c) { out.fixedId = c.id; claimed.add(c.id); }
       }
       const ex = doc.settings && doc.settings.excludedWords;
       if (ex && ex[keyWord(r.label)]) { out.excluded = true; delete out.fixedId; }
@@ -1004,7 +1007,8 @@
         continue;
       }
       const fx = r.fixedId && live(doc.fixed).find((c) => c.id === r.fixedId);
-      const t = addTx(doc, { date: r.date, amount: r.amount, label: r.label, cat: r.cat, env: fx ? chargeEnv(fx) : r.amount < 0 ? envOf(r.cat) : null, fixedId: r.fixedId || undefined, excluded: r.excluded || undefined, accountId, source: 'import', transfer: !!r.transfer, bankConfirmed: true, skipBalance: true }, now);
+      const pl = r.fixedId && !fx && live(doc.planned).some((p) => p.id === r.fixedId);
+      const t = addTx(doc, { date: r.date, amount: r.amount, label: r.label, cat: r.cat, env: fx ? chargeEnv(fx) : pl ? 'fixed' : r.amount < 0 ? envOf(r.cat) : null, fixedId: r.fixedId || undefined, excluded: r.excluded || undefined, accountId, source: 'import', transfer: !!r.transfer, bankConfirmed: true, skipBalance: true }, now);
       added++;
       if (t.fixedId) fixedPaid++;
       if (r.split) { const parts = splitTx(doc, t.id, r.split, now); for (const x of parts) if (x.fixedId) fixedPaid++; }

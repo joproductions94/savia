@@ -1454,6 +1454,9 @@
     const planned = F.live(d.planned).find((x) => x.id === id);
     const c = planned || F.live(d.fixed).find((x) => x.id === id);
     if (!c) return;
+    // déjà payée ce mois-ci (relevé importé, Apple Pay, double toucher) : pas de deuxième paiement
+    const per = F.periodFor(d, F.today());
+    if (F.live(d.tx).some((x) => x.fixedId === id && x.date >= per.start && x.date <= per.end)) { toast(t('fixed.already')); render(); return; }
     const acc = accounts().some((a) => a.id === d.settings.defaultAccount) ? d.settings.defaultAccount : null;
     const x = F.addTx(d, { date: F.today(), amount: -Math.abs(c.amount), label: c.label, cat: c.cat, env: planned ? 'fixed' : F.chargeEnv(c), fixedId: c.id, accountId: acc, source: 'manual', paidMark: true });
     motion.flash = { type: 'paid', id: x.id };

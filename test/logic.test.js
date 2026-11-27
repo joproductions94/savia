@@ -490,3 +490,32 @@ test('dossier impôts : déductions de l’année civile', () => {
   assert.equal(r.items.donations.deductible, 150);
   assert.equal(F.categorize('Don Croix-Rouge'), 'dons');
 });
+
+test('import : paiement Apple Pay comptabilisé par la banque 4 jours après, pas de doublon', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6000;
+  F.addTx(d, { date: '2026-11-26', amount: -12.4, label: 'Migros', cat: 'courses', source: 'wallet' });
+  const r = F.reconcile(d, null, [{ date: '2026-11-30', label: 'Migros Fribourg', amount: -12.4 }]);
+  assert.equal(r[0].dup, 'probable');
+  F.applyImport(d, null, r);
+  assert.equal(F.live(d.tx).length, 1);
+  assert.ok(F.live(d.tx)[0].bankConfirmed);
+});
+
+test('import : charge fixe payée à la main puis relevé, et relevé importé deux fois', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6000; d.settings.payday = 25;
+  d.fixed.push({ id: 'f1', label: 'Loyer', amount: 1800, cat: 'logement', updatedAt: 1 }, { id: 'f2', label: 'Swisscom', amount: 59, cat: 'telecom', updatedAt: 1 });
+  F.addTx(d, { date: '2026-11-27', amount: -1800, label: 'Loyer', cat: 'logement', fixedId: 'f1', source: 'manual', paidMark: true });
+  const rows = [{ date: '2026-11-25', label: 'Ordre permanent Gérance', amount: -1800 }, { date: '2026-11-30', label: 'Debit Swisscom AG', amount: -59 }];
+  F.applyImport(d, null, F.reconcile(d, null, rows));
+  F.applyImport(d, null, F.reconcile(d, null, rows));
+  const tx = F.live(d.tx);
+  assert.equal(tx.length, 2);
+  assert.deepEqual(tx.map((t) => t.fixedId).sort(), ['f1', 'f2']);
+});
+
+test('import : deux lignes du même montant ne paient pas deux fois la même charge', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6000; d.settings.payday = 25;
+  d.fixed.push({ id: 'f1', label: 'Crèche', amount: 900, cat: 'garde', updatedAt: 1 });
+  const r = F.reconcile(d, null, [{ date: '2026-11-26', label: 'Crèche Les Lutins', amount: -900 }, { date: '2026-11-27', label: 'Crèche Les Lutins', amount: -900 }]);
+  assert.equal(r.filter((x) => x.fixedId === 'f1').length, 1);
+});
