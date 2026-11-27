@@ -1113,7 +1113,12 @@
     return `<section class="card form" id="walletCard">
       <div class="hero-top"><h2>${t('wallet.title')}</h2><span class="pill beta">iPhone · Android</span></div>
       <p class="hint">${t(cloud ? 'wallet.introCloud' : 'wallet.introLocal')}</p>
-      <ol class="steps-list">${steps}</ol>
+      ${cloud && S.config.shortcutUrl ? `<ol class="steps-list install-steps">
+        <li>${t('wallet.i1')}</li>
+        <li>${t('wallet.i2')} <a class="btn primary block" href="${esc(S.config.shortcutUrl)}" target="_blank" rel="noopener">${t('wallet.install')}</a></li>
+        <li>${t('wallet.i3')}</li>
+        <li>${t('wallet.i4')}</li>
+      </ol>` : `<ol class="steps-list">${steps}</ol>`}
       ${cloud ? `<div class="copy-row"><code id="ingestUrl">${esc(S.ingestUrl)}</code><button class="btn" type="button" data-copy="ingestUrl">${t('wallet.copy')}</button></div>
         <div class="copy-row"><code id="ingestKey">${esc(ui.ingestKey || '••••••••••••')}</code><button class="btn ${ui.ingestKey ? '' : 'primary'}" type="button" data-action="${ui.ingestKey ? '' : 'make-key'}" ${ui.ingestKey ? 'data-copy="ingestKey"' : ''}>${ui.ingestKey ? t('wallet.copy') : t('wallet.makeKey')}</button></div>
         <p class="hint">${t('wallet.keyNote')}</p>`

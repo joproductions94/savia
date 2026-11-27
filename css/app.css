@@ -693,3 +693,4 @@ body.in-wizard { padding-bottom: 24px; }
 .list.compact .row.static { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; }
 .list.compact .ic { width: 36px; height: 36px; display: grid; place-items: center; }
 .list.compact { margin: 0; padding: 0; } .list.compact li { display: block; } .list.compact .row.static { width: 100%; } .list.compact .row.static .num { justify-self: end; }
+.install-steps .btn { margin-top: 8px; text-decoration: none; }
