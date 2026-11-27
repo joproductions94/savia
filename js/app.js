@@ -20,7 +20,8 @@
   const pct = (a, b) => (b > 0 ? Math.max(0, Math.min(100, (a / b) * 100)) : 0);
   const catLabel = (id) => t('cat.' + (F.CAT_BY_ID[id] ? id : 'autre'));
   const doc = () => S.doc;
-  const ui = Object.assign({ tab: 'home', filter: 'all', offset: 0, theme: 'auto' }, S.ui.get('state', {}));
+  const ui = Object.assign({ tab: 'home', filter: 'all', offset: 0 }, S.ui.get('state', {}));
+  if (ui.theme !== 'dark' && ui.theme !== 'system') ui.theme = 'light'; // fond blanc par défaut, même si le téléphone est en mode sombre
   const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, planOpen: ui.planOpen, walletOpen: ui.walletOpen, startDone: ui.startDone });
   function save() { S.save(); render(); }
   function setting(patch) { Object.assign(doc().settings, patch, { updatedAt: Date.now() }); save(); }
@@ -113,7 +114,8 @@
   }
   function applyTheme() {
     const r = document.documentElement;
-    if (ui.theme === 'light' || ui.theme === 'dark') r.dataset.theme = ui.theme; else delete r.dataset.theme;
+    if (ui.theme === 'system') delete r.dataset.theme; else r.dataset.theme = ui.theme === 'dark' ? 'dark' : 'light';
+    const m = document.querySelector('meta[name=theme-color]:not([media])'); if (m) m.content = r.dataset.theme === 'dark' ? '#0e1413' : '#ffffff';
   }
 
   function txRow(x) {
@@ -337,7 +339,7 @@
       <section class="card form">
         <div class="grid2">
           <label class="field">${t('set.lang')}<select name="lang">${[['fr', 'Français'], ['de', 'Deutsch'], ['it', 'Italiano']].map(([v, l]) => `<option value="${v}" ${I.lang === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-          <label class="field">${t('set.theme')}<select name="theme">${['auto', 'light', 'dark'].map((v) => `<option value="${v}" ${ui.theme === v ? 'selected' : ''}>${t('set.theme.' + v)}</option>`).join('')}</select></label>
+          <label class="field">${t('set.theme')}<select name="theme">${['light', 'dark', 'system'].map((v) => `<option value="${v}" ${ui.theme === v ? 'selected' : ''}>${t('set.theme.' + v)}</option>`).join('')}</select></label>
         </div>
       </section>
       <section class="card form">
