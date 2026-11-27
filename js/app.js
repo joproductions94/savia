@@ -1245,10 +1245,11 @@
     const r = new SR(); r.lang = I.locale; r.interimResults = true;
     b.classList.add('rec'); b.querySelector('span').textContent = t('txd.listening');
     let last = '';
+    const stopAt = setTimeout(() => { try { r.stop(); } catch (e) { /* déjà arrêté */ } }, 12000);
     r.onresult = (e) => { last = [...e.results].map((x) => x[0].transcript).join(' ').trim(); $('#dictHint').textContent = '« ' + last + ' »'; };
-    r.onend = () => { b.classList.remove('rec'); b.querySelector('span').textContent = t('txd.dictate'); if (last) fillFromSpeech(f, last); };
-    r.onerror = () => { b.classList.remove('rec'); b.querySelector('span').textContent = t('txd.dictate'); $('#dictHint').textContent = t('quick.mic.tip'); };
-    try { r.start(); } catch (e) { b.classList.remove('rec'); }
+    r.onend = () => { clearTimeout(stopAt); b.classList.remove('rec'); b.querySelector('span').textContent = t('txd.dictate'); if (last) fillFromSpeech(f, last); };
+    r.onerror = (e) => { b.classList.remove('rec'); b.querySelector('span').textContent = t('txd.dictate'); $('#dictHint').textContent = t(micError(e)); };
+    try { r.start(); } catch (e) { clearTimeout(stopAt); b.classList.remove('rec'); $('#dictHint').textContent = t('quick.mic.tip'); }
   });
 
   function splitDialog(x) {
@@ -1419,19 +1420,32 @@
     ]);
   }
   let rec = null;
+  // Raison lisible d'un échec de dictée (micro refusé, dictée désactivée, rien entendu, hors ligne)
+  const micError = (e) => {
+    const c = e && e.error;
+    if (c === 'not-allowed' || c === 'service-not-allowed') return 'quick.mic.denied';
+    if (c === 'no-speech' || c === 'aborted') return 'quick.mic.none';
+    if (c === 'network') return 'quick.mic.network';
+    return 'quick.mic.tip';
+  };
   $('#micBtn').addEventListener('click', () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const inp = $('#quickInput');
     if (!SR) { inp.focus(); toast(t('quick.mic.tip')); return; }
     if (rec) { rec.stop(); return; }
-    let finalText = '';
+    // iPhone : Safari termine souvent sans marquer de résultat « final » ; on garde donc le dernier texte entendu.
+    let heard = '', failed = false;
     rec = new SR();
-    rec.lang = I.locale; rec.interimResults = true;
-    rec.onresult = (e) => { const s = [...e.results].map((r) => r[0].transcript).join(' ').trim(); inp.value = s; if (e.results[e.results.length - 1].isFinal) finalText = s; };
-    rec.onend = () => { $('#micBtn').classList.remove('rec'); rec = null; if (finalText) { inp.value = ''; quickAdd(finalText, 'voice'); } };
-    rec.onerror = () => { inp.focus(); toast(t('quick.mic.tip')); };
+    rec.lang = I.locale; rec.interimResults = true; rec.continuous = false;
+    const stopAt = setTimeout(() => { try { rec && rec.stop(); } catch (e) { /* déjà arrêté */ } }, 12000);
+    rec.onresult = (e) => { heard = [...e.results].map((r) => r[0].transcript).join(' ').trim(); inp.value = heard; };
+    rec.onend = () => {
+      clearTimeout(stopAt); $('#micBtn').classList.remove('rec'); rec = null;
+      if (heard) { inp.value = ''; quickAdd(heard, 'voice'); } else if (!failed) { inp.focus(); toast(t('quick.mic.none')); }
+    };
+    rec.onerror = (e) => { failed = true; inp.focus(); toast(t(micError(e))); };
     $('#micBtn').classList.add('rec');
-    try { rec.start(); } catch (e) { $('#micBtn').classList.remove('rec'); rec = null; }
+    try { rec.start(); } catch (e) { clearTimeout(stopAt); $('#micBtn').classList.remove('rec'); rec = null; inp.focus(); toast(t('quick.mic.tip')); }
   });
 
   // ---------- actions ----------
