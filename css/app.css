@@ -628,3 +628,43 @@ details.opts > summary { cursor: pointer; padding: 10px 0; font-weight: 600; col
 details.opts > summary::-webkit-details-marker { display: none; }
 details.opts > summary::after { content: " ▾"; }
 details.opts[open] > summary::after { content: " ▴"; }
+
+/* assistant de démarrage, une étape par écran */
+body.in-wizard .tabs, body.in-wizard .top #periodLabel { display: none; }
+body.in-wizard { padding-bottom: 24px; }
+.wizard { display: grid; gap: 18px; max-width: 520px; margin: 0 auto; min-height: calc(100vh - 110px); align-content: start; }
+.wizard h1 { font: 800 1.65rem/1.15 var(--font-fig); letter-spacing: -.02em; margin: 6px 0 0; }
+.wizard .form { gap: 14px; }
+.wiz-head { display: grid; gap: 8px; }
+.wiz-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wiz-steps i { height: 5px; border-radius: 3px; background: var(--surface-2); }
+.wiz-steps i.on { background: var(--primary); }
+.big-amt input { font-size: 2.8rem; }
+.wiz-list { display: grid; gap: 8px; }
+.wiz-row { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); cursor: text; }
+.wiz-row .ic { width: 42px; height: 42px; display: grid; place-items: center; }
+.wiz-name { font-weight: 650; display: grid; gap: 1px; min-width: 0; }
+.wiz-name small { color: var(--muted); font-weight: 500; }
+.wiz-name-in { border: 0; background: none; font: inherit; font-weight: 650; color: var(--ink); min-width: 0; padding: 6px 0; outline: none; }
+.wiz-amt { display: flex; align-items: center; gap: 6px; }
+.wiz-amt input { width: 92px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); text-align: right; padding: 0 10px; font: 700 1.05rem var(--font-fig); color: var(--ink); }
+.wiz-amt input:focus { outline: 2px solid var(--primary); outline-offset: -1px; background: var(--surface); }
+.wiz-amt small { color: var(--muted); font-size: .75rem; }
+.wiz-total { margin: 0; text-align: right; color: var(--muted); }
+.wiz-total b { color: var(--ink); }
+.check-row { cursor: pointer; }
+.wiz-check { position: absolute; opacity: 0; pointer-events: none; }
+.wiz-tick { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; color: transparent; transition: background-color .15s ease, border-color .15s ease; }
+.wiz-tick svg { width: 18px; height: 18px; stroke-width: 2.4; }
+.wiz-check:checked + .wiz-tick { background: var(--ok); border-color: var(--ok); color: #fff; }
+.check-row:has(.wiz-check:checked) { border-color: var(--ok); }
+.wiz-hero { gap: 6px; }
+.wiz-sum { display: grid; gap: 0; padding: 4px 16px; }
+.wiz-sum-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.wiz-sum-row:last-child { border-bottom: 0; }
+.wiz-sum-row.tot { font-weight: 700; }
+.wiz-foot { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr 2fr; gap: 10px; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 75%, transparent); max-width: 520px; width: 100%; margin: 0 auto; }
+.wiz-foot.single { grid-template-columns: 1fr; }
+.wiz-foot .btn { min-height: 52px; border-radius: 16px; font-weight: 700; font-size: 1rem; }
+.wiz-again { margin-bottom: 4px; }
+@media (min-width: 960px) { body.in-wizard { padding-left: 0; } }

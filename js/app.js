@@ -76,6 +76,7 @@
     $('#addBtn').setAttribute('aria-label', t('quick.add'));
     $$('.tabs button').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === ui.tab ? 'page' : 'false'));
     document.body.classList.add('no-quick');
+    document.body.classList.toggle('in-wizard', ui.tab === 'home' && (!doc().settings.salary || !!wiz));
     $('#fabAdd').setAttribute('aria-label', t('add.title')); $('#fabAdd').querySelector('span').textContent = t('add.title');
     const st = F.monthState(doc());
     const per = st.period;
@@ -131,17 +132,7 @@
   const VIEWS = {
     home(st) {
       const d = doc(), p = st.plan;
-      if (!p.salary) {
-        return `<section class="card form">
-          <h1 style="font-size:1.4rem">${t('home.welcome.title')}</h1>
-          <p class="muted">${t('home.welcome.text')}</p>
-          <form id="onboard" class="form">
-            <label class="field">${t('home.welcome.salary')}<input name="salary" inputmode="decimal" required placeholder="6500"></label>
-            <label class="field">${t('home.welcome.payday')}<input name="payday" type="number" inputmode="numeric" min="1" max="28" value="${esc(d.settings.payday || 25)}"></label>
-            <button class="btn primary block">${t('home.welcome.go')}</button>
-          </form>
-        </section>`;
-      }
+      if (!p.salary || wiz) return wizardHtml();
       const f = st.flow, per = st.period;
       const al = F.alerts(d).filter((a) => a.id !== 'short').concat(F.swissReminders().map((r) => ({ level: 'info', text: reminderText(r) })).filter((r) => r.text));
       const over = f.left < 0, short = f.leftAfterAll < 0;
@@ -152,7 +143,7 @@
       const paidOut = f.fixedPaid + f.invest.deducted + f.savings.deducted;
       const recent = F.live(d.tx).slice().sort(byDateDesc).slice(0, 5);
       const e = p.emergency;
-      const hasFixed = F.live(d.fixed).length > 0, nTx = F.live(d.tx).filter((x) => x.amount < 0).length;
+      const hasFixed = F.live(d.fixed).length > 0, nTx = F.live(d.tx).filter((x) => x.amount < 0 && !x.fixedId).length;
       const chips = `<div class="chips">${t('setup.items').split('|').map((label, i) => `<button class="chip" data-action="new-fixed" data-label="${esc(label)}" data-cat="${SETUP_CATS[i]}">+ ${esc(label)}</button>`).join('')}<button class="chip" data-action="new-fixed">+ ${t('setup.other')}</button></div>`;
       // Premiers pas : une étape à la fois, jusqu'à ce que le budget tourne (charges + 3 dépenses + sauvegarde)
       const steps = [
@@ -307,6 +298,7 @@
       const accs = accounts();
       return `
       ${S.session ? '' : accountHtml()}
+      <button type="button" class="btn block wiz-again" data-action="wiz-restart">${svg('logement')}${t('wiz.again')}</button>
       <section class="card form" id="setForm">
         <h2>${t('set.money')}</h2>
         <div class="grid2">
@@ -1186,6 +1178,80 @@
     });
   }
 
+  // ---------- assistant de démarrage : une question par écran ----------
+  const WIZ_CHARGES = [['loyer', 'logement'], ['lamal', 'assurances'], ['phone', 'telecom'], ['creche', 'garde'], ['transport', 'transport'], ['impots', 'impots'], ['credit', 'credit']];
+  let wiz = null; // { step, salary, payday, charges: [{ label, cat, amount, paid }] }
+  function wizStart() {
+    const d = doc();
+    const have = F.live(d.fixed);
+    wiz = { step: 1, salary: d.settings.salary || '', payday: d.settings.payday || 25,
+      charges: WIZ_CHARGES.map(([k, cat]) => { const label = t('wiz.c.' + k); const ex = have.find((c) => c.label === label); return { label, cat, amount: ex ? ex.amount : '', paid: false }; }) };
+  }
+  function wizRead() {
+    const f = $('#wizForm'); if (!f || !wiz) return;
+    const fd = new FormData(f);
+    if (fd.has('salary')) wiz.salary = fd.get('salary');
+    if (fd.has('payday')) wiz.payday = Math.min(28, Math.max(1, Math.round(+fd.get('payday') || 25)));
+    $$('[data-wiz-amt]', f).forEach((inp) => { const c = wiz.charges[+inp.dataset.wizAmt]; if (c) c.amount = inp.value; });
+    $$('[data-wiz-label]', f).forEach((inp) => { const c = wiz.charges[+inp.dataset.wizLabel]; if (c) c.label = inp.value; });
+    $$('[data-wiz-paid]', f).forEach((inp) => { const c = wiz.charges[+inp.dataset.wizPaid]; if (c) c.paid = inp.checked; });
+  }
+  const wizList = () => wiz.charges.filter((c) => F.parseAmount(c.amount) > 0 && String(c.label).trim());
+  function wizardHtml() {
+    if (!wiz) wizStart();
+    const N = 4, st = wiz.step;
+    const sal = F.parseAmount(wiz.salary) || 0, list = wizList(), tot = list.reduce((s, c) => s + F.parseAmount(c.amount), 0);
+    const head = `<div class="wiz-head"><div class="wiz-steps">${Array.from({ length: N }, (_, i) => `<i class="${i < st ? 'on' : ''}"></i>`).join('')}</div><span class="small muted">${t('wiz.step', { n: st, total: N })}</span></div>`;
+    let body = '';
+    if (st === 1) body = `<h1>${t('wiz.s1.title')}</h1><p class="muted">${t('wiz.s1.text')}</p>
+      <label class="amount-field big-amt"><span class="cur">CHF</span><input name="salary" inputmode="decimal" placeholder="6500" value="${esc(wiz.salary)}" autocomplete="off" aria-label="${esc(t('wiz.s1.title'))}"></label>
+      <div class="field-label">${t('wiz.s1.payday')}</div>
+      <div class="date-chips">${[25, 1, 15].map((dd) => `<button type="button" class="chip" data-wiz-payday="${dd}" aria-pressed="${wiz.payday === dd}">${t('wiz.dayN', { n: dd })}</button>`).join('')}<input name="payday" type="number" inputmode="numeric" min="1" max="28" class="date-inline" value="${esc(wiz.payday)}" aria-label="${esc(t('wiz.s1.payday'))}"></div>`;
+    else if (st === 2) body = `<h1>${t('wiz.s2.title')}</h1><p class="muted">${t('wiz.s2.text')}</p>
+      <div class="wiz-list">${wiz.charges.map((c, i) => `<label class="wiz-row">${tile(c.cat, 'fixed')}${i < WIZ_CHARGES.length ? `<span class="wiz-name">${esc(c.label)}</span>` : `<input class="wiz-name-in" data-wiz-label="${i}" value="${esc(c.label)}" placeholder="${esc(t('wiz.otherPh'))}">`}<span class="wiz-amt"><input data-wiz-amt="${i}" inputmode="decimal" placeholder="0" value="${esc(c.amount)}" aria-label="${esc(c.label || t('wiz.otherPh'))}"><small>CHF</small></span></label>`).join('')}</div>
+      <button type="button" class="link" data-action="wiz-add">+ ${t('wiz.addOther')}</button>
+      <p class="wiz-total">${t('wiz.total', { amount: `<b class="num">${fmt(tot)}</b>` })}</p>`;
+    else if (st === 3) body = `<h1>${t('wiz.s3.title')}</h1><p class="muted">${t('wiz.s3.text')}</p>
+      <div class="wiz-list">${wiz.charges.map((c, i) => F.parseAmount(c.amount) > 0 && String(c.label).trim() ? `<label class="wiz-row check-row">${tile(c.cat, 'fixed')}<span class="wiz-name">${esc(c.label)}<small>${fmt(F.parseAmount(c.amount))}</small></span><input type="checkbox" class="wiz-check" data-wiz-paid="${i}" ${c.paid ? 'checked' : ''}><span class="wiz-tick">${CHECK}</span></label>` : '').join('')}</div>`;
+    else {
+      const left = sal - tot, per = F.periodFor({ ...doc(), settings: { ...doc().settings, salary: sal, payday: wiz.payday } }, F.today());
+      const days = Math.max(1, per.daysLeft || 30);
+      body = `<h1>${t('wiz.s4.title')}</h1>
+      <div class="card hero hero-dark wiz-hero"><span class="eyebrow">${t('home.left')}</span><div class="big"><span class="num">${fmt(left, { bare: true })}</span><span class="cur">CHF</span></div><p class="sub">${left > 0 ? t('wiz.s4.perDay', { amount: `<b class="num">${fmt(Math.floor(left / days))}</b>` }) : t('wiz.s4.neg')}</p></div>
+      <div class="card wiz-sum">${[[t('wiz.s4.salary'), fmt(sal)], [t('wiz.s4.charges', { n: list.length }), '−' + fmt(tot)], [t('wiz.s4.left'), fmt(left)]].map(([k, v], i) => `<div class="wiz-sum-row ${i === 2 ? 'tot' : ''}"><span>${k}</span><b class="num">${v}</b></div>`).join('')}</div>
+      <p class="muted small">${t('wiz.s4.next')}</p>`;
+    }
+    const back = st > 1 ? `<button type="button" class="btn" data-action="wiz-back">${t('wiz.back')}</button>` : (doc().settings.salary ? `<button type="button" class="btn" data-action="wiz-cancel">${t('wiz.cancel')}</button>` : '');
+    const next = `<button type="button" class="btn primary" data-action="wiz-next">${st === N ? t('wiz.finish') : st === 2 && !list.length ? t('wiz.skip') : t('wiz.next')}</button>`;
+    return `<section class="wizard"><form id="wizForm" class="form" onsubmit="return false">${head}${body}</form><div class="wiz-foot ${back ? '' : 'single'}">${back}${next}</div></section>`;
+  }
+  function wizFinish() {
+    const d = doc(), sal = F.parseAmount(wiz.salary);
+    setting({ salary: sal, payday: wiz.payday, canton: d.settings.canton || 'FR' });
+    const per = F.periodFor(d, F.today());
+    for (const c of wizList()) {
+      const amount = F.parseAmount(c.amount), label = String(c.label).trim();
+      let fx = F.live(d.fixed).find((x) => x.label === label);
+      if (fx) Object.assign(fx, { amount, updatedAt: Date.now() });
+      else { fx = { id: F.uid(), label, amount, cat: c.cat, day: null, freq: 'month', dueMonth: null, updatedAt: Date.now() }; d.fixed.push(fx); }
+      const paid = F.live(d.tx).some((x) => x.fixedId === fx.id && x.date >= per.start && x.date <= per.end);
+      if (c.paid && !paid) F.addTx(d, { date: F.today(), amount: -amount, label, cat: c.cat, env: F.chargeEnv(fx), fixedId: fx.id, source: 'manual', paidMark: true });
+    }
+    F.relinkFixed(d);
+    wiz = null; ui.tab = 'home'; saveUi(); save(); render(); window.scrollTo(0, 0);
+    toast(t('wiz.done'));
+  }
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-wiz-payday]'); if (!b || !wiz) return;
+    wizRead(); wiz.payday = +b.dataset.wizPayday; render();
+  });
+  document.addEventListener('input', (ev) => {
+    if (!ev.target.closest('#wizForm') || !wiz || wiz.step !== 2) return;
+    wizRead();
+    const tot = wizList().reduce((s, c) => s + F.parseAmount(c.amount), 0);
+    const el = $('.wiz-total'); if (el) el.innerHTML = t('wiz.total', { amount: `<b class="num">${fmt(tot)}</b>` });
+  });
+
   const EXP_CHIPS = ['courses', 'sorties', 'transport', 'maison', 'sante', 'loisirs', 'vetements', 'autre'];
   const INC_CHIPS = ['revenu', 'autre'];
   const catChips = (income) => (income ? INC_CHIPS : EXP_CHIPS).map((c) => `<button type="button" class="cat-chip" data-cat-chip="${c}">${tile(c, c === 'revenu' ? 'income' : F.envOf(c))}<span>${esc(catLabel(c))}</span></button>`).join('');
@@ -1532,6 +1598,17 @@
     'new-income': () => txDialog({ kind: 'income' }),
     limit: (el) => limitDialog(el.dataset.cat),
     'scan-bill': () => scanDialog(),
+    'wiz-next': () => {
+      wizRead();
+      if (wiz.step === 1 && !(F.parseAmount(wiz.salary) > 0)) { toast(t('wiz.s1.err')); return; }
+      if (wiz.step === 2 && !wizList().length) wiz.step = 3; // rien à cocher : on passe au résumé
+      if (wiz.step >= 4) { wizFinish(); return; }
+      wiz.step++; render(); window.scrollTo(0, 0);
+    },
+    'wiz-back': () => { wizRead(); wiz.step = Math.max(1, wiz.step - (wiz.step === 4 && !wizList().length ? 2 : 1)); render(); window.scrollTo(0, 0); },
+    'wiz-cancel': () => { wiz = null; render(); },
+    'wiz-add': () => { wizRead(); wiz.charges.push({ label: '', cat: 'autre', amount: '', paid: false }); render(); const ins = $$('[data-wiz-label]'); if (ins.length) ins[ins.length - 1].focus(); },
+    'wiz-restart': () => { wizStart(); ui.tab = 'home'; render(); window.scrollTo(0, 0); },
     'start-hide': () => { ui.startDone = true; saveUi(); render(); },
     'go-settings': () => { ui.tab = 'settings'; saveUi(); render(); },
     'keep-later': () => { ui.keepLater = Date.now(); saveUi(); render(); },
@@ -1634,7 +1711,7 @@
   document.addEventListener('change', (ev) => {
     const el = ev.target;
     // le formulaire d'accueil ne s'enregistre qu'au bouton « Commencer », sinon il disparaît dès le premier champ
-    if (!el.closest('#view') || !el.name || el.closest('#onboard')) return;
+    if (!el.closest('#view') || !el.name || el.closest('#onboard') || el.closest('#wizForm')) return;
     const s = doc().settings;
     if (el.name === 'salary') setting({ salary: F.parseAmount(el.value) || 0 });
     else if (el.name === 'payday') setting({ payday: Math.min(28, Math.max(1, +el.value || 25)) });
