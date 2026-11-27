@@ -172,6 +172,7 @@
         const remote = await pull();
         if (remote) {
           const merged = F.merge(doc, normalize(remote.doc));
+          F.repairFixedPayments(merged); // les doublons venus d'un autre appareil sont réparés après la fusion
           if (!F.sameDoc(merged, doc)) { doc = merged; ls.set(KEY, doc); emit(); }
           rev = remote.rev;
           if (F.sameDoc(doc, normalize(remote.doc))) break;
