@@ -324,6 +324,43 @@
     }
     return n;
   }
+  // ---------- assistant : plusieurs dépenses dans une phrase, et réponses aux questions ----------
+  // « migros 23 et essence 70 » → deux saisies ; la virgule décimale (« 4,50 ») n'est pas un séparateur.
+  function splitCommands(text) {
+    const parts = String(text || '').split(/\s*[;+\n]\s*|,\s+(?=\D)|\s+(?:et|und|e|y|and|puis)\s+/i).map((s) => s.trim()).filter(Boolean);
+    return parts.length > 1 && parts.every((s) => /\d/.test(s)) ? parts : [String(text || '').trim()];
+  }
+  // Question en langage courant → réponse chiffrée (sans IA : mots-clés FR/DE/IT/ES/EN).
+  function answer(doc, text, todayStr) {
+    const q = fold(text), t0 = todayStr || today();
+    const st = monthState(doc, t0), per = st.period;
+    const has = (re) => re.test(q);
+    let from = per.start, to = per.end, span = 'month';
+    if (has(/mois (dernier|passe|precedent)|letzte[nr]? monat|vormonat|mese scorso|mes pasado|last month/)) { const p = periodAt(doc, 1); from = p.start; to = p.end; span = 'lastMonth'; }
+    else if (has(/semaine|woche|settimana|semana|week/)) { from = addDays(t0, -6); to = t0; span = 'week'; }
+    else if (has(/aujourd|heute|oggi|hoy|today/)) { from = to = t0; span = 'today'; }
+    else if (has(/hier|gestern|ieri|ayer|yesterday/) && !/\d/.test(q)) { from = to = addDays(t0, -1); span = 'yesterday'; }
+    const spentIn = (cat) => live(doc.tx).filter((x) => x.amount < 0 && !x.transfer && !x.excluded && x.date >= from && x.date <= to && (!cat || x.cat === cat));
+    if (has(/plus gros|plus grand|plus cher|grosste|teuerst|piu grand|piu car|mas grande|mayor|biggest|largest/)) {
+      const list = spentIn().sort((a, b) => a.amount - b.amount).slice(0, 3);
+      return { kind: 'top', span, list: list.map((x) => ({ label: x.label, amount: x.amount, date: x.date })) };
+    }
+    if (has(/charge|fixkost|spese fisse|gastos fijos|a payer|a pagar|da pagare|offen|bills/)) {
+      const pending = fixedStatus(doc, per).filter((f) => f.kind === 'fixed' && !f.paid);
+      return { kind: 'pending', total: round2(pending.reduce((s, f) => s + num(f.charge.amount), 0)), list: pending.slice(0, 5).map((f) => ({ label: f.charge.label, amount: num(f.charge.amount) })) };
+    }
+    if (has(/reste|rest\b|bleibt|ubrig|resta|rimane|queda|left|budget|par jour|pro tag|al giorno|por dia/)) {
+      return { kind: 'left', left: st.flow.leftAfterAll, perDay: st.perDay, daysLeft: per.daysLeft };
+    }
+    if (has(/combien|wie ?viel|quanto|cuanto|how much|depens|ausgegeben|speso|gastado|spent|total/)) {
+      let cat = categorize(text);
+      if (cat === 'autre' || cat === 'revenu') cat = null;
+      const list = spentIn(cat);
+      return { kind: 'spent', span, cat, total: round2(-list.reduce((s, x) => s + x.amount, 0)), count: list.length };
+    }
+    return null;
+  }
+
   // Réparation : une charge supprimée puis recréée laissait son paiement actif (compté deux fois).
   // 1. un paiement relié à une charge supprimée passe sur la charge vivante du même nom (ou du même montant et de la même catégorie) ;
   // 2. une charge ne garde qu'un « payé » par mois : le relevé bancaire l'emporte sur la coche manuelle, et deux coches deviennent une.
@@ -1152,7 +1189,7 @@
     CATS, CAT_BY_ID, ENVS, PRESETS,
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
     envOf, chargeEnv, isBonus, ibanOk, parseQrBill, billToPlanned, matchPlanned, forecast, taxDossier, limitsState, goalsState, yearReview, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
-    addTx, updateTx, deleteTx, matchFixed, relinkFixed, repairFixedPayments, chargeCandidates, findPayment, fixedStatus, plannedFor, dueDate, setCheck,
+    addTx, updateTx, deleteTx, matchFixed, relinkFixed, repairFixedPayments, chargeCandidates, findPayment, splitCommands, answer, fixedStatus, plannedFor, dueDate, setCheck,
     monthState, alerts, emergencyFund, history, nextMonth, dailySeries, parseIngest, ingest, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,
   };

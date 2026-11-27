@@ -694,3 +694,17 @@ body.in-wizard { padding-bottom: 24px; }
 .list.compact .ic { width: 36px; height: 36px; display: grid; place-items: center; }
 .list.compact { margin: 0; padding: 0; } .list.compact li { display: block; } .list.compact .row.static { width: 100%; } .list.compact .row.static .num { justify-self: end; }
 .install-steps .btn { margin-top: 8px; text-decoration: none; }
+
+/* assistant */
+.card.assistant { display: grid; gap: 10px; }
+.card.assistant h2 { font-size: 1.02rem; margin: 0; }
+.chat-log { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+.bubble { max-width: 88%; padding: 9px 12px; border-radius: 16px; font-size: .9rem; line-height: 1.4; }
+.bubble.me { justify-self: end; background: var(--primary); color: #fff; border-bottom-right-radius: 5px; }
+.bubble.bot { justify-self: start; background: var(--surface-2); color: var(--ink); border-bottom-left-radius: 5px; }
+.bubble .link { min-height: 0; padding: 0; font-size: .85rem; }
+.ask-row { display: flex; gap: 6px; align-items: center; }
+.ask-row input { flex: 1; min-width: 0; height: 46px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); padding: 0 14px; font-size: 1rem; color: var(--ink); }
+.ask-row input:focus { outline: 2px solid var(--primary); outline-offset: -1px; background: var(--surface); }
+#askMic.rec { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.ask-chips { flex-wrap: wrap; overflow: visible; }

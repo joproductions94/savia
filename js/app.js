@@ -201,6 +201,7 @@
         </dl>
         <div class="hero-actions"><button class="btn" data-action="new-tx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>${t('tx.newExpense')}</button><button class="btn" data-action="new-income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${t('tx.newIncome')}</button></div>
       </section>
+      ${assistantHtml()}
       ${keepNotice()}
       ${start}
       ${setup}
@@ -388,6 +389,7 @@
   }
   function afterRender() {
     const quiet = reduceMotion.matches;
+    const cl = $('.chat-log'); if (cl) cl.scrollTop = cl.scrollHeight; // dernière réponse visible
     $$('details[data-ui]').forEach((el) => el.addEventListener('toggle', () => { ui[el.dataset.ui] = el.open; saveUi(); }));
     // le chiffre principal se compte depuis sa valeur précédente
     const n = $('#heroNum');
@@ -1244,6 +1246,60 @@
     const next = `<button type="button" class="btn primary" data-action="wiz-next">${st === N ? t('wiz.finish') : st === 2 && !list.length ? t('wiz.skip') : t('wiz.next')}</button>`;
     return `<section class="wizard"><form id="wizForm" class="form" onsubmit="return false">${head}${body}</form><div class="wiz-foot ${back ? '' : 'single'}">${back}${next}</div></section>`;
   }
+  // ---------- assistant : écrire ou dire une dépense, ou poser une question ----------
+  const chat = []; // échanges de la session : { me, bot, undo }
+  function assistantHtml() {
+    const log = chat.slice(-3).map((m, i, arr) => `<div class="bubble me">${esc(m.me)}</div><div class="bubble bot">${m.bot}${m.undo && i === arr.length - 1 ? ` <button type="button" class="link" data-action="ask-undo">${t('undo')}</button>` : ''}</div>`).join('');
+    return `<section class="card assistant">
+      <div class="hero-top"><h2>${t('ask.title')}</h2><span class="small muted">${t('ask.sub')}</span></div>
+      ${log ? `<div class="chat-log">${log}</div>` : ''}
+      <form id="askForm" class="ask-row" autocomplete="off"><input id="askInput" enterkeyhint="send" placeholder="${esc(t('ask.ph'))}" aria-label="${esc(t('ask.title'))}">
+        <button type="button" class="icon-btn" id="askMic" aria-label="${esc(t('quick.mic'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg></button>
+        <button type="submit" class="icon-btn primary" aria-label="${esc(t('quick.add'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
+      ${chat.length ? '' : `<div class="chips ask-chips">${['ask.s1', 'ask.s2', 'ask.s3', 'ask.s4'].map((k) => `<button type="button" class="chip" data-ask="${esc(t(k))}">${esc(t(k))}</button>`).join('')}</div>`}
+    </section>`;
+  }
+  const spanLabel = (s) => t('ask.span.' + s);
+  function askReply(text) {
+    const d = doc(), parts = F.splitCommands(text);
+    const items = parts.map((p) => F.parseCommand(p, { learned: d.settings.learned })).filter((r) => r.ok);
+    if (items.length === parts.length && items.length) {
+      const acc = accounts().some((a) => a.id === d.settings.defaultAccount) ? d.settings.defaultAccount : null;
+      const added = items.map((r) => F.addTx(d, { date: r.date, amount: r.amount, label: r.label || catLabel(r.cat), cat: r.cat, accountId: acc, source: 'manual' }));
+      F.repairFixedPayments(d);
+      save();
+      return { bot: t('ask.added', { list: added.map((x) => `<b>${esc(x.label)}</b> ${fmt(x.amount)}${x.date !== F.today() ? ' · ' + esc(ds(x.date)) : ''} <span class="muted">(${esc(catLabel(x.cat))})</span>`).join(', ') }), undo: added.map((x) => x.id) };
+    }
+    const a = F.answer(d, text);
+    if (!a) return { bot: t('ask.help') };
+    if (a.kind === 'left') return { bot: t('ask.left', { left: `<b class="num">${fmt(a.left)}</b>`, perDay: `<b class="num">${fmt(a.perDay)}</b>`, days: a.daysLeft }) };
+    if (a.kind === 'spent') return { bot: t(a.cat ? 'ask.spentCat' : 'ask.spent', { total: `<b class="num">${fmt(a.total)}</b>`, cat: esc(a.cat ? catLabel(a.cat) : ''), span: spanLabel(a.span), n: a.count }) };
+    if (a.kind === 'top') return { bot: a.list.length ? t('ask.top', { span: spanLabel(a.span) }) + '<br>' + a.list.map((x, i) => `${i + 1}. ${esc(x.label)} <b class="num">${fmt(x.amount)}</b> <span class="muted">${esc(ds(x.date))}</span>`).join('<br>') : t('ask.none') };
+    if (a.kind === 'pending') return { bot: a.list.length ? t('ask.pending', { total: `<b class="num">${fmt(a.total)}</b>` }) + '<br>' + a.list.map((x) => `· ${esc(x.label)} <b class="num">${fmt(x.amount)}</b>`).join('<br>') : t('ask.allPaid') };
+    return { bot: t('ask.help') };
+  }
+  function ask(text) {
+    text = String(text || '').trim(); if (!text) return;
+    const r = askReply(text);
+    chat.push({ me: text, ...r }); if (chat.length > 12) chat.shift();
+    render();
+    const inp = $('#askInput'); if (inp && !matchMedia('(pointer: coarse)').matches) inp.focus();
+  }
+  document.addEventListener('submit', (ev) => { if (ev.target.id !== 'askForm') return; ev.preventDefault(); ask($('#askInput').value); });
+  document.addEventListener('click', (ev) => {
+    const c = ev.target.closest('[data-ask]'); if (c) { ask(c.dataset.ask); return; }
+    if (!ev.target.closest('#askMic')) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition, inp = $('#askInput');
+    if (!SR) { inp.focus(); toast(t('quick.mic.tip')); return; }
+    const r = new SR(); r.lang = I.locale; r.interimResults = true; let heard = '';
+    const btn = $('#askMic'); btn.classList.add('rec');
+    const stopAt = setTimeout(() => { try { r.stop(); } catch (e) { /* déjà arrêté */ } }, 12000);
+    r.onresult = (e) => { heard = [...e.results].map((x) => x[0].transcript).join(' ').trim(); inp.value = heard; };
+    r.onend = () => { clearTimeout(stopAt); btn.classList.remove('rec'); if (heard) ask(heard); };
+    r.onerror = (e) => { btn.classList.remove('rec'); toast(t(micError(e))); };
+    try { r.start(); } catch (e) { clearTimeout(stopAt); btn.classList.remove('rec'); }
+  });
+
   // ---------- comparer avec le solde de la banque ----------
   // Franko connaît l'argent du mois (salaire − ce qui est sorti). La banque y ajoute ce qui restait avant le salaire (le report).
   // 1re vérification : l'écart devient le report du mois (si l'utilisateur le confirme) ; ensuite, tout écart = mouvement manquant.
@@ -1680,6 +1736,7 @@
     limit: (el) => limitDialog(el.dataset.cat),
     'scan-bill': () => scanDialog(),
     'bank-check': () => bankCheckDialog(),
+    'ask-undo': () => { const m = chat[chat.length - 1]; if (!m || !m.undo) return; for (const id of m.undo) F.deleteTx(doc(), id); m.undo = null; m.bot += ' — ' + t('ask.undone'); save(); },
     'install-later': () => { ui.installLater = Date.now(); saveUi(); render(); },
     'wiz-next': () => {
       wizRead();

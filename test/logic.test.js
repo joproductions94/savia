@@ -577,3 +577,20 @@ test('payé à la main après le relevé : le paiement bancaire existant est uti
   assert.equal(voit.length, 1); assert.ok(voit[0].bankConfirmed); assert.equal(voit[0].fixedId, 'v2');
   assert.equal(nour.length, 1); assert.equal(nour[0].fixedId, 'n2');
 });
+
+test('assistant : plusieurs dépenses dans une phrase, virgule décimale respectée', () => {
+  assert.deepEqual(F.splitCommands('migros 23 et essence 70'), ['migros 23', 'essence 70']);
+  assert.deepEqual(F.splitCommands('café 4,50'), ['café 4,50']);
+  assert.deepEqual(F.splitCommands('café 4.50, migros 23'), ['café 4.50', 'migros 23']);
+});
+
+test('assistant : répond aux questions courantes', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6000; d.settings.payday = 25;
+  F.addTx(d, { date: '2026-11-26', amount: -45, label: 'Migros', cat: 'courses' });
+  F.addTx(d, { date: '2026-11-27', amount: -80, label: 'Restaurant', cat: 'sorties' });
+  assert.equal(F.answer(d, 'combien me reste-t-il ?', '2026-11-28').kind, 'left');
+  const sp = F.answer(d, 'combien en courses ce mois ?', '2026-11-28');
+  assert.equal(sp.cat, 'courses'); assert.equal(sp.total, 45);
+  assert.equal(F.answer(d, 'mes plus grosses dépenses', '2026-11-28').list[0].label, 'Restaurant');
+  assert.equal(F.answer(d, 'bonjour', '2026-11-28'), null);
+});
