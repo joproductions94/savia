@@ -601,3 +601,8 @@ body.sheet-open { overflow: hidden; }
 .card.keep h2 { font-size: .98rem; }
 .card.keep p { font-size: .86rem; }
 .card.keep .btn { min-height: 44px; }
+
+/* fond blanc (mode clair) : les cartes se détachent par un contour léger et une ombre douce */
+:root { --bg: #ffffff; --surface: #ffffff; --surface-2: #f3f5f4; --line: #e6eae8; --shadow: 0 1px 2px rgba(21, 33, 31, .04), 0 8px 24px -6px rgba(21, 33, 31, .08); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0e1413; --surface: #161e1d; --surface-2: #1e2827; --line: #26312f; --shadow: 0 1px 2px rgba(0, 0, 0, .35); } }
+:root[data-theme="dark"] { --bg: #0e1413; --surface: #161e1d; --surface-2: #1e2827; --line: #26312f; --shadow: 0 1px 2px rgba(0, 0, 0, .35); }

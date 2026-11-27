@@ -4,7 +4,7 @@
   "description": "Budget familial suisse : ce qu'il vous reste une fois les charges payées.",
   "start_url": "app.html",
   "display": "standalone",
-  "background_color": "#f2f4f3",
+  "background_color": "#ffffff",
   "theme_color": "#0d5c57",
   "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }
