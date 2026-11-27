@@ -327,6 +327,23 @@
   // Réparation : une charge supprimée puis recréée laissait son paiement actif (compté deux fois).
   // 1. un paiement relié à une charge supprimée passe sur la charge vivante du même nom (ou du même montant et de la même catégorie) ;
   // 2. une charge ne garde qu'un « payé » par mois : le relevé bancaire l'emporte sur la coche manuelle, et deux coches deviennent une.
+  function findPayment(doc, charge, per, strict) {
+    const liveIds = new Set(live(doc.fixed).map((c) => c.id).concat(live(doc.planned).map((p) => p.id)));
+    const name = fold(charge.label), w = keyWord(charge.label), a = num(charge.amount);
+    let best = null, bestScore = 0;
+    for (const t of live(doc.tx)) {
+      if (!(t.amount < 0) || t.transfer || t.excluded || t.date < per.start || t.date > per.end) continue;
+      if (t.fixedId && liveIds.has(t.fixedId) && t.fixedId !== charge.id) continue; // paie déjà une autre charge
+      if (t.fixedId === charge.id) continue; // déjà relié : rien à trouver
+      const text = fold((t.label || '') + ' ' + (t.bankLabel || ''));
+      const same = fold(t.label) === name;
+      const named = same || (!!w && (text.includes(w) || text.replace(/\s+/g, '').includes(w)));
+      const exact = cents(-t.amount) === cents(a), close = a > 0 && Math.abs(-t.amount - a) <= a * 0.1;
+      const score = same && close ? 4 : named && exact ? 3 : named && close ? 2 : !strict && exact && t.env === 'fixed' ? 1 : 0;
+      if (score > bestScore || (score === bestScore && score && t.bankConfirmed && !(best && best.bankConfirmed))) { best = t; bestScore = score; }
+    }
+    return best;
+  }
   function repairFixedPayments(doc, now) {
     const liveFixed = live(doc.fixed), liveIds = new Set(liveFixed.map((c) => c.id).concat(live(doc.planned).map((p) => p.id)));
     const byId = new Map((doc.fixed || []).map((c) => [c.id, c]));
@@ -339,6 +356,14 @@
       const repl = liveFixed.find((c) => fold(c.label) === name) || liveFixed.find((c) => c.cat === old.cat && cents(num(c.amount)) === cents(num(old.amount)));
       if (repl) t.fixedId = repl.id; else delete t.fixedId;
       touch(t, now); changed++;
+    }
+    for (const c of liveFixed) {
+      const months = new Set(live(doc.tx).filter((t) => t.fixedId === c.id).map((t) => t.date));
+      for (const date of months) {
+        const per = periodFor(doc, date);
+        let extra;
+        while ((extra = findPayment(doc, c, per, true))) { extra.fixedId = c.id; touch(extra, now); changed++; }
+      }
     }
     const isManual = (t) => !t.bankConfirmed && t.source !== 'import';
     const groups = new Map();
@@ -1127,7 +1152,7 @@
     CATS, CAT_BY_ID, ENVS, PRESETS,
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
     envOf, chargeEnv, isBonus, ibanOk, parseQrBill, billToPlanned, matchPlanned, forecast, taxDossier, limitsState, goalsState, yearReview, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
-    addTx, updateTx, deleteTx, matchFixed, relinkFixed, repairFixedPayments, chargeCandidates, fixedStatus, plannedFor, dueDate, setCheck,
+    addTx, updateTx, deleteTx, matchFixed, relinkFixed, repairFixedPayments, chargeCandidates, findPayment, fixedStatus, plannedFor, dueDate, setCheck,
     monthState, alerts, emergencyFund, history, nextMonth, dailySeries, parseIngest, ingest, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,
   };

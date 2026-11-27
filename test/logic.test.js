@@ -557,3 +557,23 @@ test('import : une charge cochée « payé » à la main est confirmée par le r
   assert.equal(pays.length, 1);
   assert.ok(pays[0].bankConfirmed);
 });
+
+test('payé à la main après le relevé : le paiement bancaire existant est utilisé, pas de 2e paiement', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6267; d.settings.payday = 25;
+  // charge supprimée puis recréée : l'ancien paiement (confirmé par la banque) n'est plus relié
+  d.fixed.push({ id: 'v2', label: 'Compte voiture', amount: 500, cat: 'autre', updatedAt: 2 }, { id: 'n2', label: 'Compte nourriture', amount: 350, cat: 'autre', updatedAt: 2 });
+  F.addTx(d, { date: '2026-11-26', amount: -500, label: 'Compte voiture', bankLabel: 'James Ortega · Envoyé via Neon', cat: 'autre', env: 'fixed', source: 'manual', bankConfirmed: true });
+  F.addTx(d, { date: '2026-11-27', amount: -350, label: 'Compte nourriture', cat: 'autre', env: 'fixed', source: 'manual', paidMark: true });
+  for (const t of d.tx) delete t.fixedId; // non reliés (comme après la suppression de la charge)
+  // cas 1 : la personne coche « Payé » → findPayment retrouve le paiement existant
+  const per = F.periodFor(d, '2026-11-28');
+  const found = F.findPayment(d, d.fixed[0], per);
+  assert.ok(found && found.amount === -500 && found.bankConfirmed);
+  // cas 2 : un 2e paiement a déjà été créé à la main → la réparation garde le paiement bancaire seulement
+  F.addTx(d, { date: '2026-11-27', amount: -500, label: 'Compte voiture', cat: 'autre', fixedId: 'v2', source: 'manual', paidMark: true });
+  F.addTx(d, { date: '2026-11-27', amount: -350, label: 'Compte nourriture', cat: 'autre', fixedId: 'n2', source: 'manual', paidMark: true });
+  F.repairFixedPayments(d);
+  const voit = F.live(d.tx).filter((t) => t.amount === -500), nour = F.live(d.tx).filter((t) => t.amount === -350);
+  assert.equal(voit.length, 1); assert.ok(voit[0].bankConfirmed); assert.equal(voit[0].fixedId, 'v2');
+  assert.equal(nour.length, 1); assert.equal(nour[0].fixedId, 'n2');
+});

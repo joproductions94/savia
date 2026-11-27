@@ -1302,9 +1302,13 @@
       if (fx) Object.assign(fx, { amount, updatedAt: Date.now() });
       else { fx = { id: F.uid(), label, amount, cat: c.cat, day: null, freq: 'month', dueMonth: null, updatedAt: Date.now() }; d.fixed.push(fx); }
       const paid = F.live(d.tx).some((x) => x.fixedId === fx.id && x.date >= per.start && x.date <= per.end);
-      if (c.paid && !paid) F.addTx(d, { date: F.today(), amount: -amount, label, cat: c.cat, env: F.chargeEnv(fx), fixedId: fx.id, source: 'manual', paidMark: true });
+      if (c.paid && !paid) {
+        const found = F.findPayment(d, fx, per);
+        if (found) { found.fixedId = fx.id; found.updatedAt = Date.now(); }
+        else F.addTx(d, { date: F.today(), amount: -amount, label, cat: c.cat, env: F.chargeEnv(fx), fixedId: fx.id, source: 'manual', paidMark: true });
+      }
     }
-    F.relinkFixed(d);
+    F.relinkFixed(d); F.repairFixedPayments(d);
     wiz = null; ui.tab = 'home'; saveUi(); save(); render(); window.scrollTo(0, 0);
     toast(t('wiz.done'));
   }
@@ -1648,6 +1652,9 @@
     // déjà payée ce mois-ci (relevé importé, Apple Pay, double toucher) : pas de deuxième paiement
     const per = F.periodFor(d, F.today());
     if (F.live(d.tx).some((x) => x.fixedId === id && x.date >= per.start && x.date <= per.end)) { toast(t('fixed.already')); render(); return; }
+    // déjà sur le relevé (ou saisi) sans être relié : on relie ce paiement, on n'en crée pas un deuxième
+    const found = F.findPayment(d, c, per);
+    if (found) { found.fixedId = c.id; found.updatedAt = Date.now(); save(); toast(t('fixed.foundPaid', { label: c.label, amount: fmt(found.amount), date: ds(found.date) })); return; }
     const acc = accounts().some((a) => a.id === d.settings.defaultAccount) ? d.settings.defaultAccount : null;
     const x = F.addTx(d, { date: F.today(), amount: -Math.abs(c.amount), label: c.label, cat: c.cat, env: planned ? 'fixed' : F.chargeEnv(c), fixedId: c.id, accountId: acc, source: 'manual', paidMark: true });
     motion.flash = { type: 'paid', id: x.id };
