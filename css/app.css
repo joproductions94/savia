@@ -606,3 +606,25 @@ body.sheet-open { overflow: hidden; }
 :root { --bg: #ffffff; --surface: #ffffff; --surface-2: #f3f5f4; --line: #e6eae8; --shadow: 0 1px 2px rgba(21, 33, 31, .04), 0 8px 24px -6px rgba(21, 33, 31, .08); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0e1413; --surface: #161e1d; --surface-2: #1e2827; --line: #26312f; --shadow: 0 1px 2px rgba(0, 0, 0, .35); } }
 :root[data-theme="dark"] { --bg: #0e1413; --surface: #161e1d; --surface-2: #1e2827; --line: #26312f; --shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+
+/* feuille de saisie simplifiée */
+.amount-row { display: flex; align-items: flex-end; gap: 10px; }
+.amount-row .amount-field { flex: 1; min-width: 0; }
+.mic-inline { width: 48px; height: 48px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; flex: none; color: var(--primary); }
+.mic-inline.rec { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.field-label { font-size: .85rem; font-weight: 600; color: var(--muted); margin: 2px 0 -4px; }
+.cat-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.cat-chip { display: grid; justify-items: center; gap: 5px; padding: 8px 2px 7px; border-radius: 16px; border: 1.5px solid transparent; background: var(--surface-2); cursor: pointer; font-size: .72rem; font-weight: 600; color: var(--ink); min-width: 0; -webkit-tap-highlight-color: transparent; }
+.cat-chip span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-chip .ic { width: 36px; height: 36px; display: grid; place-items: center; }
+.cat-chip .ic svg { width: 19px; height: 19px; }
+.cat-chip[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.cat-chip:active { transform: scale(.96); }
+.date-chips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.date-chips .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.date-inline { flex: 1; min-width: 140px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; font: inherit; color: var(--ink); }
+details.opts { border-top: 1px solid var(--line); padding-top: 4px; }
+details.opts > summary { cursor: pointer; padding: 10px 0; font-weight: 600; color: var(--primary); font-size: .92rem; list-style: none; }
+details.opts > summary::-webkit-details-marker { display: none; }
+details.opts > summary::after { content: " ▾"; }
+details.opts[open] > summary::after { content: " ▴"; }

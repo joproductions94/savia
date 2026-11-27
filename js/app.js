@@ -21,7 +21,7 @@
   const catLabel = (id) => t('cat.' + (F.CAT_BY_ID[id] ? id : 'autre'));
   const doc = () => S.doc;
   const ui = Object.assign({ tab: 'home', filter: 'all', offset: 0, theme: 'auto' }, S.ui.get('state', {}));
-  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, planOpen: ui.planOpen, startDone: ui.startDone });
+  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, planOpen: ui.planOpen, walletOpen: ui.walletOpen, startDone: ui.startDone });
   function save() { S.save(); render(); }
   function setting(patch) { Object.assign(doc().settings, patch, { updatedAt: Date.now() }); save(); }
   const accounts = () => F.live(doc().accounts);
@@ -138,7 +138,6 @@
           <form id="onboard" class="form">
             <label class="field">${t('home.welcome.salary')}<input name="salary" inputmode="decimal" required placeholder="6500"></label>
             <label class="field">${t('home.welcome.payday')}<input name="payday" type="number" inputmode="numeric" min="1" max="28" value="${esc(d.settings.payday || 25)}"></label>
-            <label class="field">${t('home.welcome.canton')}<select name="canton">${T.CANTON_LIST.map((c) => `<option ${c === (d.settings.canton || 'FR') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
             <button class="btn primary block">${t('home.welcome.go')}</button>
           </form>
         </section>`;
@@ -190,7 +189,7 @@
       <section class="card hero hero-dark" aria-label="${esc(t('home.left'))}">
         <div class="hero-top"><span class="eyebrow">${t('home.left')}</span><span class="pill ${status[0]}">${t(status[1])}</span></div>
         <div class="big ${f.leftAfterAll < 0 ? 'neg' : ''}"><span class="num" id="heroNum" data-v="${f.leftAfterAll}">${fmt(f.leftAfterAll, { bare: true })}</span><span class="cur">CHF</span></div>
-        <p class="sub">${per.daysLeft > 0 && f.leftAfterAll > 0 ? t('home.perDayUntil', { amount: `<b class="num">${fmt(st.perDay)}</b>`, date: esc(until) }) : t('home.untilSalary', { date: esc(ds(F.addDays(per.end, 1))) })}</p>
+        <p class="sub">${setup || !fxAll.length ? t('home.estHint') : per.daysLeft > 0 && f.leftAfterAll > 0 ? t('home.perDayUntil', { amount: `<b class="num">${fmt(st.perDay)}</b>`, date: esc(until) }) : t('home.untilSalary', { date: esc(ds(F.addDays(per.end, 1))) })}</p>
         <dl class="hero-stats">
           <div><dt>${t('home.in')}</dt><dd class="num">${fmt(inTotal, { bare: true })}</dd></div>
           <div><dt>${t('home.out')}</dt><dd class="num">${fmt(f.spentDaily, { bare: true })}</dd></div>
@@ -262,9 +261,7 @@
       </section>
       <section class="stack-v">
         <button class="btn primary block" data-action="import">${svg('revenu')}${t('tx.import')}</button>
-        <div class="row-btns"><button class="btn" data-action="new-tx">${t('tx.newExpense')}</button><button class="btn" data-action="new-income">${t('tx.newIncome')}</button></div>
-        <button class="btn block" data-action="scan-bill">${svg('qr')}${t('qr.scan')}</button>
-        <button class="btn block" data-action="export-csv">${t('tx.export')}</button>
+        <button class="link" style="justify-self:center" data-action="export-csv">${t('tx.export')}</button>
       </section>
       ${reviewHtml()}`;
     },
@@ -309,6 +306,7 @@
       const urg = accounts().some((a) => a.kind === 'urgence');
       const accs = accounts();
       return `
+      ${S.session ? '' : accountHtml()}
       <section class="card form" id="setForm">
         <h2>${t('set.money')}</h2>
         <div class="grid2">
@@ -339,8 +337,11 @@
         <label class="field">${t('set.fundNow')}<input name="emergencyFund" inputmode="decimal" value="${esc(urg ? F.emergencyFund(d) : s.emergencyFund || '')}" ${urg ? 'disabled' : ''}></label>
         ${urg ? `<p class="hint">${t('set.fundAuto')}</p>` : ''}
       </section>
-      ${walletHtml()}
-      ${accountHtml()}
+      <details class="more" data-ui="walletOpen" ${ui.walletOpen ? 'open' : ''}>
+        <summary><span><b>${t('set.walletTitle')}</b><small>${t('set.walletHint')}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="more-body">${walletHtml()}</div>
+      </details>
+      ${S.session ? accountHtml() : ''}
       <section class="card form">
         <div class="grid2">
           <label class="field">${t('set.lang')}<select name="lang">${[['fr', 'Français'], ['de', 'Deutsch'], ['it', 'Italiano']].map(([v, l]) => `<option value="${v}" ${I.lang === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -1185,20 +1186,44 @@
     });
   }
 
+  const EXP_CHIPS = ['courses', 'sorties', 'transport', 'maison', 'sante', 'loisirs', 'vetements', 'autre'];
+  const INC_CHIPS = ['revenu', 'autre'];
+  const catChips = (income) => (income ? INC_CHIPS : EXP_CHIPS).map((c) => `<button type="button" class="cat-chip" data-cat-chip="${c}">${tile(c, c === 'revenu' ? 'income' : F.envOf(c))}<span>${esc(catLabel(c))}</span></button>`).join('');
+  // pastilles de catégorie et de date : un toucher, synchronisées avec la liste complète repliée
+  function syncChips(f) {
+    const sel = f.querySelector('[name=cat]'), date = f.querySelector('[name=date]');
+    f.querySelectorAll('[data-cat-chip]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.catChip === sel.value)));
+    f.querySelectorAll('[data-date-chip]').forEach((b) => b.setAttribute('aria-pressed', String(F.addDays(F.today(), +b.dataset.dateChip) === date.value)));
+  }
+  document.addEventListener('click', (ev) => {
+    const f = ev.target.closest('#txForm'); if (!f) return;
+    const c = ev.target.closest('[data-cat-chip]');
+    if (c) { const sel = f.querySelector('[name=cat]'); sel.value = c.dataset.catChip; sel.dataset.chosen = '1'; syncChips(f); return; }
+    const dc = ev.target.closest('[data-date-chip]');
+    if (dc) { f.querySelector('[name=date]').value = F.addDays(F.today(), +dc.dataset.dateChip); syncChips(f); }
+  });
   function txDialog(x) {
     const d = doc(), existing = x.id ? x : null;
     const isIncome = existing ? existing.amount > 0 : x.kind === 'income';
     const accOpts = `<option value="">${t('txd.noAccount')}</option>` + accounts().map((a) => `<option value="${esc(a.id)}" ${(existing ? existing.accountId : d.settings.defaultAccount) === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
     openDialog(existing ? t('txd.edit') : t('txd.new'), `<div class="form" id="txForm">
       <div class="seg kind"><label class="k-exp"><input type="radio" name="kind" value="expense" ${!isIncome ? 'checked' : ''}>${t('txd.expense')}</label><label class="k-inc"><input type="radio" name="kind" value="income" ${isIncome ? 'checked' : ''}>${t('txd.income')}</label></div>
-      <label class="amount-field"><span class="sr">${t('txd.amount')}</span><span class="cur">CHF</span><input name="amount" inputmode="decimal" placeholder="0.00" value="${existing ? esc(Math.abs(existing.amount)) : ''}" autocomplete="off" aria-label="${esc(t('txd.amount'))}"></label>
-      ${existing ? '' : `<button type="button" class="btn dictate" data-dictate><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg><span>${t('txd.dictate')}</span></button><p class="hint" id="dictHint">${t('txd.dictateHint')}</p>`}
-      <label class="field">${t('txd.label')}<input name="label" value="${esc(existing ? existing.label : x.label || '')}" autocomplete="off"></label>
-      <label class="field">${t('txd.date')}<input name="date" type="date" value="${esc(existing ? existing.date : F.today())}"></label>
-      <div class="grid2"><label class="field">${t('txd.cat')}<select name="cat" ${!existing && x.cat ? 'data-chosen="1"' : ''}>${catOptions(existing ? existing.cat : x.cat || (isIncome ? 'revenu' : 'autre'))}</select></label>
-      <label class="field">${t('txd.account')}<select name="accountId">${accOpts}</select></label></div>
-      <label class="check"><input type="checkbox" name="excluded" ${existing && existing.excluded ? 'checked' : ''}>${t('txd.excluded')}</label>
-      <label class="check"><input type="checkbox" name="transfer" ${existing && existing.transfer ? 'checked' : ''}>${t('txd.transfer')}</label>
+      <div class="amount-row"><label class="amount-field"><span class="sr">${t('txd.amount')}</span><span class="cur">CHF</span><input name="amount" inputmode="decimal" placeholder="0.00" value="${existing ? esc(Math.abs(existing.amount)) : ''}" autocomplete="off" aria-label="${esc(t('txd.amount'))}"></label>
+      ${existing ? '' : `<button type="button" class="icon-btn mic-inline" data-dictate aria-label="${esc(t('txd.dictate'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg><span class="sr">${t('txd.dictate')}</span></button>`}</div>
+      ${existing ? '' : `<p class="hint" id="dictHint" hidden></p>`}
+      <label class="field">${t('txd.labelEasy')}<input name="label" value="${esc(existing ? existing.label : x.label || '')}" autocomplete="off" placeholder="${esc(t('txd.labelPh'))}"></label>
+      <div class="field-label">${t('txd.cat')}</div>
+      <div class="cat-chips" role="group" aria-label="${esc(t('txd.cat'))}">${catChips(isIncome)}</div>
+      <div class="field-label">${t('txd.date')}</div>
+      <div class="date-chips" role="group"><button type="button" class="chip" data-date-chip="0">${t('txd.today')}</button><button type="button" class="chip" data-date-chip="-1">${t('txd.yesterday')}</button><input name="date" type="date" class="date-inline" value="${esc(existing ? existing.date : F.today())}" aria-label="${esc(t('txd.date'))}"></div>
+      <details class="opts"><summary>${t('txd.more')}</summary>
+        <div class="form">
+          <label class="field">${t('txd.catAll')}<select name="cat" ${!existing && x.cat ? 'data-chosen="1"' : ''}>${catOptions(existing ? existing.cat : x.cat || (isIncome ? 'revenu' : 'autre'))}</select></label>
+          ${accounts().length ? `<label class="field">${t('txd.account')}<select name="accountId">${accOpts}</select></label>` : ''}
+          <label class="check"><input type="checkbox" name="excluded" ${existing && existing.excluded ? 'checked' : ''}>${t('txd.excluded')}</label>
+          <label class="check"><input type="checkbox" name="transfer" ${existing && existing.transfer ? 'checked' : ''}>${t('txd.transfer')}</label>
+        </div>
+      </details>
     </div>`,
     `${existing ? `<button class="btn danger" value="delete">${t('dlg.delete')}</button>` : ''}${existing && existing.amount < 0 ? `<button class="btn" value="split">${t('dlg.split')}</button>` : ''}<button class="btn primary" value="save">${t('dlg.save')}</button>`,
     (action, fd) => {
@@ -1218,6 +1243,7 @@
       else motion.flash = { type: 'tx', id: F.addTx(d, { ...data, source: 'manual' }).id };
       save(); toast(t('txd.saved'));
     });
+    const tf = $('#txForm'); if (tf) { syncChips(tf); if (!existing) { const a = tf.querySelector('[name=amount]'); try { a.focus({ preventScroll: true }); } catch (e) { a.focus(); } } }
   }
 
   // Dans la feuille de saisie : la catégorie suit le libellé tant qu'on ne l'a pas choisie ; la dictée remplit tout.
@@ -1241,6 +1267,8 @@
       const income = f.querySelector('[name=kind]:checked').value === 'income';
       sel.value = income ? 'revenu' : F.categorize(f.querySelector('[name=label]').value, doc().settings.learned);
     }
+    if (ev.target.name === 'kind') f.querySelector('.cat-chips').innerHTML = catChips(ev.target.value === 'income'); // dépense ↔ rentrée
+    syncChips(f);
   });
   document.addEventListener('change', (ev) => { if (ev.target.matches('[data-dossier-year]')) { dlg.close(); dossierDialog(+ev.target.value); } });
   document.addEventListener('change', (ev) => { if (ev.target.name === 'kind' && ev.target.closest('#txForm')) ev.target.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -1254,7 +1282,7 @@
     f.querySelector('[name=label]').value = r.label;
     f.querySelector('[name=date]').value = r.date;
     const sel = f.querySelector('[name=cat]'); if (!sel.dataset.chosen) sel.value = income ? 'revenu' : r.cat;
-    $('#dictHint').textContent = '« ' + text + ' »';
+    $('#dictHint').textContent = '« ' + text + ' »'; $('#dictHint').hidden = false; syncChips(f);
   }
   document.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-dictate]');
@@ -1262,6 +1290,7 @@
     const f = b.closest('#txForm'), SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { f.querySelector('[name=label]').focus(); $('#dictHint').textContent = t('quick.mic.tip'); return; }
     const r = new SR(); r.lang = I.locale; r.interimResults = true;
+    $('#dictHint').hidden = false; $('#dictHint').textContent = t('txd.dictateHint');
     b.classList.add('rec'); b.querySelector('span').textContent = t('txd.listening');
     let last = '';
     const stopAt = setTimeout(() => { try { r.stop(); } catch (e) { /* déjà arrêté */ } }, 12000);
@@ -1302,14 +1331,16 @@
   function fixedDialog(c) {
     const d = doc(), existing = c && c.id ? c : null, yearly = !!(c && c.freq === 'year');
     openDialog(existing ? t('fixedd.edit') : t('fixedd.new'), `<div class="form" id="fixForm" data-freq="${yearly ? 'year' : 'month'}">
-      <label class="field">${t('fixedd.label')}<input name="label" value="${esc(c ? c.label || '' : '')}" autocomplete="off"></label>
+      <label class="field">${t('fixedd.label')}<input name="label" value="${esc(c ? c.label || '' : '')}" autocomplete="off" placeholder="${esc(t('fixedd.labelPh'))}"></label>
       <div class="seg kind freq"><label><input type="radio" name="freq" value="month" ${yearly ? '' : 'checked'}>${t('fixedd.monthly')}</label><label><input type="radio" name="freq" value="year" ${yearly ? 'checked' : ''}>${t('fixedd.yearly')}</label></div>
-      <div class="grid2"><label class="field"><span data-when="month">${t('fixedd.amount')}</span><span data-when="year">${t('fixedd.amountYear')}</span><input name="amount" inputmode="decimal" value="${esc(c && c.amount ? c.amount : '')}" autocomplete="off"></label>
-      <label class="field" data-when="month">${t('fixedd.day')}<input name="day" type="number" min="1" max="31" value="${esc(existing && existing.day ? existing.day : '')}"></label>
+      <div class="grid2"><label class="field"><span data-when="month">${t('fixedd.amount')}</span><span data-when="year">${t('fixedd.amountYear')}</span><input name="amount" inputmode="decimal" value="${esc(c && c.amount ? c.amount : '')}" autocomplete="off" placeholder="0.00"></label>
+      <label class="field" data-when="month">${t('fixedd.dayEasy')}<input name="day" type="number" inputmode="numeric" min="1" max="31" value="${esc(existing && existing.day ? existing.day : '')}" placeholder="1"></label>
       <label class="field" data-when="year">${t('fixedd.dueMonth')}<select name="dueMonth">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${+(c && c.dueMonth) === i + 1 ? 'selected' : ''}>${esc(monthName(i + 1))}</option>`).join('')}</select></label></div>
       <p class="hint" data-when="year">${t('fixedd.yearHint')}</p>
+      ${existing ? '' : `<label class="check" data-when="month"><input type="checkbox" name="paidNow">${t('fixedd.paidNow')}</label>`}
+      <details class="opts"><summary>${t('txd.more')}</summary><div class="form">
       <label class="field">${t('txd.cat')}<select name="cat" ${c && c.cat ? 'data-chosen="1"' : ''}>${catOptions(c && c.cat ? c.cat : 'logement')}</select></label>
-      <p class="hint">${t('fixedd.hint')}</p></div>`,
+      <p class="hint">${t('fixedd.hint')}</p></div></details></div>`,
     `${existing ? `<button class="btn danger" value="delete">${t('dlg.delete')}</button>` : ''}<button class="btn primary" value="save">${t('dlg.save')}</button>`,
     (action, fd) => {
       const now = Date.now();
@@ -1324,9 +1355,13 @@
       const data = { label, amount, cat: fd.get('cat'), day: year ? null : +fd.get('day') || null, freq: year ? 'year' : 'month', dueMonth: year ? +fd.get('dueMonth') : null, updatedAt: now };
       // la réserve commence le mois où la facture annuelle est saisie
       if (year && !(existing && existing.freq === 'year' && existing.since)) data.since = F.monthState(d).month;
-      if (existing) Object.assign(existing, data); else d.fixed.push({ id: F.uid(), ...data });
+      let fresh = null;
+      if (existing) Object.assign(existing, data); else { fresh = { id: F.uid(), ...data }; d.fixed.push(fresh); }
       F.relinkFixed(d);
       save();
+      // « déjà payée ce mois-ci » : le paiement est noté tout de suite
+      if (fresh && !year && fd.get('paidNow') === 'on') payFixed(fresh.id);
+      else toast(t('fixedd.saved', { label }));
     });
   }
 
@@ -1622,7 +1657,7 @@
       const sal = F.parseAmount(fd.get('salary'));
       if (!(sal > 0)) return;
       const pd = Math.round(+fd.get('payday'));
-      setting({ salary: sal, canton: fd.get('canton'), ...(pd >= 1 && pd <= 28 ? { payday: pd } : {}) });
+      setting({ salary: sal, canton: fd.get('canton') || doc().settings.canton || 'FR', ...(pd >= 1 && pd <= 28 ? { payday: pd } : {}) });
     } else if (ev.target.id === 'signIn') {
       ev.preventDefault();
       const email = String(new FormData(ev.target).get('email') || '').trim().toLowerCase();
