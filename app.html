@@ -33,9 +33,11 @@
   <nav class="tabs" id="tabs">
     <button data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg><span data-t="tab.home"></span></button>
     <button data-tab="tx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg><span data-t="tab.tx"></span></button>
-    <button data-tab="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span data-t="tab.plan"></span></button>
+    <button type="button" id="fabAdd" class="fab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Ajouter</span></button>
+    <button data-tab="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="M3.5 10h17M7.5 15h4"/></svg><span data-t="tab.plan"></span></button>
     <button data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span data-t="tab.settings"></span></button>
   </nav>
+  <div id="addSheet" class="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true"><div class="sheet-body"></div></div></div>
   <dialog id="dlg"></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <input type="file" id="stmtFile" accept=".csv,.txt,text/csv" hidden>

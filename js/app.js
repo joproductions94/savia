@@ -21,7 +21,7 @@
   const catLabel = (id) => t('cat.' + (F.CAT_BY_ID[id] ? id : 'autre'));
   const doc = () => S.doc;
   const ui = Object.assign({ tab: 'home', filter: 'all', offset: 0, theme: 'auto' }, S.ui.get('state', {}));
-  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, startDone: ui.startDone });
+  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, planOpen: ui.planOpen, startDone: ui.startDone });
   function save() { S.save(); render(); }
   function setting(patch) { Object.assign(doc().settings, patch, { updatedAt: Date.now() }); save(); }
   const accounts = () => F.live(doc().accounts);
@@ -75,15 +75,14 @@
     $('#micBtn').setAttribute('aria-label', t('quick.mic'));
     $('#addBtn').setAttribute('aria-label', t('quick.add'));
     $$('.tabs button').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === ui.tab ? 'page' : 'false'));
-    const showQuick = (ui.tab === 'home' || ui.tab === 'tx') && !!doc().settings.salary;
-    $('#quick').hidden = !showQuick;
-    document.body.classList.toggle('no-quick', !showQuick);
+    document.body.classList.add('no-quick');
+    $('#fabAdd').setAttribute('aria-label', t('add.title')); $('#fabAdd').querySelector('span').textContent = t('add.title');
     const st = F.monthState(doc());
     const per = st.period;
     $('#periodLabel').textContent = doc().settings.salary ? `${mLong.format(asDate(per.start))} · J-${per.daysLeft}` : '';
     renderBadge();
     const v = $('#view');
-    v.innerHTML = keepNotice() + (VIEWS[ui.tab] || VIEWS.home)(st);
+    v.innerHTML = (ui.tab === 'home' ? '' : keepNotice()) + (VIEWS[ui.tab] || VIEWS.home)(st);
     if (v.dataset.tab !== ui.tab) {
       // la vue glisse dans le sens de l'onglet choisi, comme une transition de prototype
       const order = ['home', 'tx', 'plan', 'settings'];
@@ -97,7 +96,7 @@
   // Sans compte, les données ne vivent que dans ce navigateur (sur iPhone, Safari et l'écran d'accueil ne les partagent pas).
   function keepNotice() {
     if (S.handedOff) return `<section class="card keep done"><h2>${t('keep.done.title')}</h2><p class="muted">${t('keep.done.text')}</p></section>`;
-    if (ui.tab === 'home' && (!doc().settings.salary || !ui.startDone)) return ''; // premier écran : le salaire d'abord, puis le guide propose la sauvegarde // le guide « Pour bien démarrer » s'en charge
+    if (!doc().settings.salary || (ui.tab === 'home' && !ui.startDone)) return ''; // premier écran : le salaire d'abord, puis le guide propose la sauvegarde // le guide « Pour bien démarrer » s'en charge
     if (!S.cloud || S.session || ui.tab === 'settings' || (ui.keepLater && Date.now() - ui.keepLater < 3 * 864e5)) return '';
     const pv = S.providers || {};
     const btns = (pv.google ? `<button type="button" class="btn block oauth google" data-action="oauth" data-p="google">${GOOGLE_LOGO}<span>${t('auth.google')}</span></button>` : '')
@@ -175,32 +174,41 @@
         <p class="small muted">${t('setup.text')}</p>
         <div class="chips">${t('setup.items').split('|').map((label, i) => `<button class="chip" data-action="new-fixed" data-label="${esc(label)}" data-cat="${SETUP_CATS[i]}">+ ${esc(label)}</button>`).join('')}<button class="chip" data-action="new-fixed">+ ${t('setup.other')}</button></div>
       </section>`;
-      const moreBody = [forecastHtml(), bonusHtml(st), f.spentDaily > 0 ? paceHtml(st) : '', calcHtml(st), catHtml(st), taxCard()].join('');
+      const fxAll = st.fixed.filter((x) => x.kind === 'fixed'), fxTodo = fxAll.filter((x) => !x.paid);
+      const fxDone = fxAll.length - fxTodo.length;
+      const fxTotal = fxAll.reduce((sum, x) => sum + Math.max(+x.charge.amount || 0, x.paid ? -x.paid.amount : 0), 0);
+      const until = ds(per.end);
+      // Résumé des charges du mois, avec les prochaines à payer (un toucher pour les marquer payées)
+      const mini = !fxAll.length ? '' : `<section class="card charges-mini">
+        <div class="hero-top"><h2>${t('charges.mini')}</h2><button class="link" data-action="tab" data-tab="plan">${t('recent.all')}</button></div>
+        <div class="mini-line"><span>${t('fixed.paidCount', { paid: `<b>${fxDone}</b>`, total: fxAll.length })}</span><span class="muted">${f.fixedPending ? t('fixed.due', { amount: `<b class="num" style="color:var(--ink)">${fmt(f.fixedPending)}</b>` }) : t('fixed.allPaid')}</span></div>
+        <div class="meter" style="--c:var(--fixed)"><i style="width:${pct(fxTotal - f.fixedPending, fxTotal).toFixed(1)}%"></i></div>
+        ${fxTodo.length ? `<ul class="list">${fxTodo.slice(0, 3).map(({ charge: c }) => `<li><button class="row" data-action="edit-fixed" data-id="${esc(c.id)}">${tile(c.cat, 'fixed')}<span class="main"><span class="title">${esc(c.label)}</span><span class="meta"><b class="num">${fmt(c.amount)}</b> · ${c.day ? esc(t('fixed.dueOn', { date: ds(F.dueDate(per, c.day)) })) : esc(catLabel(c.cat))}</span></span></button>${stateBtn(false, t('state.pay'), '', `data-action="pay-fixed" data-id="${esc(c.id)}" aria-label="${esc(t('fixed.markPaid', { label: c.label }))}"`)}</li>`).join('')}</ul>` : ''}
+      </section>`;
+      const moreBody = [forecastHtml(), bonusHtml(st), f.spentDaily > 0 ? paceHtml(st) : '', calcHtml(st), catHtml(st)].join('');
       return `<div class="dash"><div class="col">
+      <section class="card hero hero-dark" aria-label="${esc(t('home.left'))}">
+        <div class="hero-top"><span class="eyebrow">${t('home.left')}</span><span class="pill ${status[0]}">${t(status[1])}</span></div>
+        <div class="big ${f.leftAfterAll < 0 ? 'neg' : ''}"><span class="num" id="heroNum" data-v="${f.leftAfterAll}">${fmt(f.leftAfterAll, { bare: true })}</span><span class="cur">CHF</span></div>
+        <p class="sub">${per.daysLeft > 0 && f.leftAfterAll > 0 ? t('home.perDayUntil', { amount: `<b class="num">${fmt(st.perDay)}</b>`, date: esc(until) }) : t('home.untilSalary', { date: esc(ds(F.addDays(per.end, 1))) })}</p>
+        <dl class="hero-stats">
+          <div><dt>${t('home.in')}</dt><dd class="num">${fmt(inTotal, { bare: true })}</dd></div>
+          <div><dt>${t('home.out')}</dt><dd class="num">${fmt(f.spentDaily, { bare: true })}</dd></div>
+          <div><dt>${t(setup || !fxAll.length ? 'home.estFixed' : 'home.fixedLeft')}</dt><dd class="num">${fmt(setup || !fxAll.length ? paidOut : f.fixedPending, { bare: true })}</dd></div>
+        </dl>
+        <div class="hero-actions"><button class="btn" data-action="new-tx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>${t('tx.newExpense')}</button><button class="btn" data-action="new-income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${t('tx.newIncome')}</button></div>
+      </section>
+      ${keepNotice()}
       ${start}
       ${setup}
-      <section class="card hero" aria-label="${esc(t('home.available'))}">
-        <div class="hero-top"><span class="eyebrow">${t('home.available')}</span><span class="pill ${status[0]}">${t(status[1])}</span></div>
-        <div class="big ${over ? 'neg' : ''}"><span class="num" id="heroNum" data-v="${f.left}">${fmt(f.left, { bare: true })}</span><span class="cur">CHF</span></div>
-        <p class="sub">${t('home.onlyPaid', { date: esc(ds(F.addDays(per.end, 1))) })}</p>
-        ${f.pending >= 1 ? `<p class="bank-line"><span>${t('home.notPaid')} <b class="num">${fmt(f.pending)}</b></span><span>= ${t('home.afterAll')} <b class="num ${short ? 'neg' : ''}">${fmt(f.leftAfterAll)}</b>${!short && per.daysLeft > 0 ? ` · ${t('home.perDay', { amount: `<b class="num">${fmt(st.perDay)}</b>` })}` : ''}</span></p>` : ''}
-        <div class="meter ${over ? 'over' : ''}" data-mk="hero" style="--c:var(--primary)" role="img" aria-label="${Math.round(used)} %"><i style="width:${used.toFixed(1)}%"></i></div>
-        <div class="hero-actions"><button class="btn" data-action="new-tx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>${t('tx.newExpense')}</button><button class="btn" data-action="new-income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${t('tx.newIncome')}</button></div>
-        <dl class="stats">
-          <div><dt>${t(setup ? 'home.estFixed' : 'home.paidOut')}</dt><dd class="num">${fmt(paidOut, { bare: true })}</dd></div>
-          <div><dt>${t('home.spent')}</dt><dd class="num">${fmt(f.spentDaily, { bare: true })}</dd></div>
-          <div><dt>${t('home.pending')}</dt><dd class="num">${fmt(f.pending, { bare: true })}</dd></div>
-        </dl>
-      </section>
-      ${al.length ? `<section><div class="section-head"><h2>${t('home.watch')}</h2></div><div class="card notes">${al.map((a) => `<div class="note ${a.level}">${esc(alertText(a))}</div>`).join('')}</div></section>` : ''}
-      ${recent.length ? `<section>
-        <div class="section-head"><h2>${t('recent.title')}</h2><button class="link" data-action="tab" data-tab="tx">${t('recent.all')}</button></div>
-        <div class="card flush"><ul class="list">${recent.map(txRow).join('')}</ul></div>
-      </section>` : ''}
+      ${mini}
+      ${al.length ? `<section><div class="section-head"><h2>${t('home.watch')}</h2></div><div class="card notes">${al.slice(0, 2).map((a) => `<div class="note ${a.level}">${esc(alertText(a))}</div>`).join('')}</div></section>` : ''}
       </div><div class="col">
-      ${nTx || hasFixed ? checksHtml(st) : ''}
-      ${showStart || !hasFixed ? '' : fixedSection(st)}
-      <details class="more" id="moreDetails" ${ui.moreOpen ? 'open' : ''}>
+      <section>
+        <div class="section-head"><h2>${t('recent.title')}</h2>${recent.length ? `<button class="link" data-action="tab" data-tab="tx">${t('recent.all')}</button>` : ''}</div>
+        <div class="card flush">${recent.length ? `<ul class="list">${recent.map(txRow).join('')}</ul>` : `<div class="empty-cta"><p>${t('recent.emptyEasy')}</p><button class="btn primary" data-action="open-add">${t('add.title')}</button></div>`}</div>
+      </section>
+      <details class="more" data-ui="moreOpen" ${ui.moreOpen ? 'open' : ''}>
         <summary><span><b>${t('more.title')}</b><small>${t('more.hint')}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <div class="more-body">${moreBody}
       <section class="card gauge">
@@ -266,20 +274,32 @@
       if (!st.plan.salary) return VIEWS.home(st);
       const charges = F.live(d.fixed).filter((c) => +c.amount > 0).sort((a, b) => b.amount - a.amount);
       const total = charges.reduce((s, c) => s + F.monthlyOf(c), 0);
-      return `${nextMonthHtml(st)}
+      const yearly = charges.filter((c) => F.isYearly(c));
+      return `<section class="card hero hero-soft">
+        <div class="hero-top"><span class="eyebrow">${t('charges.total')}</span></div>
+        <div class="big"><span class="num">${fmt(total, { bare: true })}</span><span class="cur">${t('charges.perMonth')}</span></div>
+        <p class="sub">${t('charges.share', { n: charges.length, pct: st.plan.salary ? Math.round((total / st.plan.salary) * 100) : 0 })}${yearly.length ? ' · ' + t('charges.yearlyIn', { n: yearly.length }) : ''}</p>
+      </section>
+      ${fixedSection(st)}
+      ${checksHtml(st)}
+      <details class="more" data-ui="planOpen" ${ui.planOpen ? 'open' : ''}>
+        <summary><span><b>${t('more.planTitle')}</b><small>${t('more.planHint')}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="more-body">
+      ${nextMonthHtml(st)}
       ${goalsHtml()}
       ${yearlyHtml(st)}
       ${pillarHtml()}
       ${savingsHtml(st)}
       <section>
-        <div class="section-head"><h2>${t('plan.chargesTitle')}</h2><button class="link" data-action="new-fixed">${t('fixed.add')}</button></div>
+        <div class="section-head"><h2>${t('plan.chargesTitle')}</h2></div>
         <div class="card flush">${charges.length ? `<ul class="list">${charges.map((c) => `<li><button class="row" data-action="edit-fixed" data-id="${esc(c.id)}">
             ${tile(c.cat, F.chargeEnv(c))}<span class="main"><span class="title">${esc(c.label)}</span><span class="meta">${esc(catLabel(c.cat))}${F.isYearly(c) ? ` · ${t('fixedd.perYear', { amount: fmt(c.amount), month: esc(monthName(c.dueMonth)) })}` : c.day ? ` · ${esc(c.day)}.` : ''}</span></span>
             <span class="num">${fmt(F.monthlyOf(c))}</span></button></li>`).join('')}</ul>
           <p class="small" style="text-align:right;padding:4px 0 12px">${t('plan.total', { amount: `<b class="num">${fmt(total)}</b>` })}</p>` : `<p class="empty">${t('fixed.empty')}</p>`}</div>
       </section>
       ${taxCard()}
-      ${dossierCard()}`;
+      ${dossierCard()}
+        </div></details>`;
     },
 
     settings() {
@@ -361,8 +381,7 @@
   }
   function afterRender() {
     const quiet = reduceMotion.matches;
-    const more = $('#moreDetails');
-    if (more) more.addEventListener('toggle', () => { ui.moreOpen = more.open; saveUi(); });
+    $$('details[data-ui]').forEach((el) => el.addEventListener('toggle', () => { ui[el.dataset.ui] = el.open; saveUi(); }));
     // le chiffre principal se compte depuis sa valeur précédente
     const n = $('#heroNum');
     if (n) {
@@ -1529,7 +1548,33 @@
     'manage-billing': () => S.billing('portal').catch(() => toast('…')),
     'sign-out': async () => { await S.signOut(); render(); },
   };
+  // ---------- feuille « Ajouter » : toutes les façons de saisir, au même endroit ----------
+  const sheet = $('#addSheet');
+  function openAdd() {
+    if (!doc().settings.salary) { go('home'); return; }
+    sheet.querySelector('.sheet-body').innerHTML = `<div class="sheet-grab"></div><h2>${t('add.title')}</h2>
+      <div class="add-grid">
+        <button type="button" class="add-tile exp" data-sheet="new-tx"><span class="ic">${svg('courses')}</span><b>${t('tx.newExpense')}</b><small>${t('add.expHint')}</small></button>
+        <button type="button" class="add-tile inc" data-sheet="new-income"><span class="ic">${svg('revenu')}</span><b>${t('tx.newIncome')}</b><small>${t('add.incHint')}</small></button>
+        <button type="button" class="add-tile fix" data-sheet="new-fixed"><span class="ic">${svg('logement')}</span><b>${t('add.fixed')}</b><small>${t('add.fixHint')}</small></button>
+        <button type="button" class="add-tile qr" data-sheet="scan-bill"><span class="ic">${svg('qr')}</span><b>${t('add.scan')}</b><small>${t('add.scanHint')}</small></button>
+        <button type="button" class="add-tile csv wide" data-sheet="import"><span class="ic">${svg('revenu')}</span><b>${t('tx.import')}</b><small>${t('add.csvHint')}</small></button>
+      </div>
+      <p class="small muted add-or">${t('add.write')}</p>`;
+    sheet.querySelector('.sheet-body').appendChild($('#quick'));
+    sheet.hidden = false; document.body.classList.add('sheet-open');
+  }
+  function closeAdd() { if (sheet.hidden) return; sheet.hidden = true; document.body.classList.remove('sheet-open'); document.body.appendChild($('#quick')); }
+  sheet.addEventListener('click', (ev) => {
+    if (ev.target === sheet) { closeAdd(); return; }
+    const b = ev.target.closest('[data-sheet]');
+    if (b) { closeAdd(); const fn = ACTIONS[b.dataset.sheet]; if (fn) fn(b); }
+  });
+  $('#quick').addEventListener('submit', () => setTimeout(closeAdd, 0));
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeAdd(); });
+  ACTIONS['open-add'] = openAdd;
   document.addEventListener('click', (ev) => {
+    if (ev.target.closest('#fabAdd')) { openAdd(); return; }
     const tab = ev.target.closest('.tabs button');
     if (tab) { go(tab.dataset.tab); return; }
     const el = ev.target.closest('[data-action]');

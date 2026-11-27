@@ -506,3 +506,98 @@ details.more[open] > summary svg { transform: rotate(180deg); }
 .card.start .chips { flex-wrap: wrap; overflow: visible; }
 .imp-sum { list-style: none; margin: 0 0 6px; padding: 12px 14px; display: grid; gap: 6px; background: var(--surface-2); border-radius: 12px; font-size: .9rem; }
 .imp-sum b { display: inline-block; min-width: 1.6em; }
+
+/* ================= Refonte : style app iOS (carte de solde, + central, feuille d'ajout) ================= */
+:root { --radius: 22px; --radius-s: 14px; --hero-a: #0f6a62; --hero-b: #0a3d3a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hero-a: #13524c; --hero-b: #0a2624; } }
+:root[data-theme="dark"] { --hero-a: #13524c; --hero-b: #0a2624; }
+h2 { letter-spacing: -.01em; }
+.section-head h2 { font-size: 1.05rem; }
+
+/* carte de solde */
+.card.hero-dark { background: radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,.12), transparent 55%), linear-gradient(150deg, var(--hero-a), var(--hero-b)); color: #fff; border: 0; box-shadow: 0 14px 34px -12px rgba(10, 61, 58, .55); padding: 20px 20px 18px; gap: 14px; }
+.hero-dark .eyebrow { color: rgba(255,255,255,.72); }
+.hero-dark .big { font-size: 2.9rem; }
+.hero-dark .big .cur, .hero-dark .sub { color: rgba(255,255,255,.75); }
+.hero-dark .sub b { color: #fff; }
+.hero-dark .big.neg .num { color: #ffb4a8; }
+.hero-dark .pill { background: rgba(255,255,255,.14); color: #fff; }
+.hero-dark .pill.ok::before { background: #6ee7b0; } .hero-dark .pill.warn::before { background: #ffd27a; } .hero-dark .pill.danger::before { background: #ff8e7c; }
+.hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); margin: 2px 0 0; padding: 12px 0 0; border-top: 1px solid rgba(255,255,255,.14); }
+.hero-stats div { display: grid; gap: 2px; padding: 0 10px; border-left: 1px solid rgba(255,255,255,.14); min-width: 0; }
+.hero-stats div:first-child { border-left: 0; padding-left: 0; }
+.hero-stats dt { font-size: .72rem; color: rgba(255,255,255,.65); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero-stats dd { margin: 0; font: 700 1rem/1.2 var(--font-fig); color: #fff; }
+.hero-dark .hero-actions .btn { min-height: 48px; border-radius: 16px; border: 0; font-weight: 700; gap: 8px; background: rgba(255,255,255,.14); color: #fff; }
+.hero-dark .hero-actions .btn:first-child { background: #fff; color: var(--hero-b); }
+.hero-dark .hero-actions .btn:active { transform: scale(.97); }
+.card.hero-soft { gap: 8px; }
+.hero-soft .big { font-size: 2.3rem; }
+.small-btn { min-height: 34px !important; padding: 4px 12px; font-size: .82rem; border-radius: 999px; }
+
+/* charges du mois (accueil) */
+.charges-mini { display: grid; gap: 10px; }
+.charges-mini h2 { font-size: 1.02rem; margin: 0; }
+.mini-line { display: flex; justify-content: space-between; gap: 10px; font-size: .86rem; flex-wrap: wrap; }
+.charges-mini .list { margin: 2px -4px -6px; }
+.empty-cta { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 22px 8px; color: var(--muted); }
+.empty-cta p { margin: 0; max-width: 30ch; }
+
+/* listes : icônes plus douces, lignes plus aérées */
+.list .ic, .ic { border-radius: 14px; }
+.list button.row { min-height: 60px; }
+.list .title { font-weight: 650; }
+
+/* barre d'onglets avec bouton + central */
+.tabs { grid-template-columns: repeat(5, 1fr); background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: saturate(1.6) blur(18px); backdrop-filter: saturate(1.6) blur(18px); }
+.tabs button.fab { align-self: start; justify-self: center; width: 58px; height: 58px; margin-top: -20px; border-radius: 50%; background: linear-gradient(150deg, var(--hero-a), var(--hero-b)); color: #fff; box-shadow: 0 10px 22px -8px rgba(10, 61, 58, .7), 0 0 0 5px var(--bg); display: grid; place-items: center; }
+.tabs button.fab svg { width: 26px; height: 26px; stroke-width: 2.2; }
+.tabs button.fab span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.tabs button.fab:active { transform: scale(.94); }
+.tabs button.fab::before { display: none; }
+body > .quick { display: none !important; }
+
+/* feuille « Ajouter » */
+.sheet { position: fixed; inset: 0; z-index: 30; background: rgba(8, 20, 18, .42); display: flex; align-items: flex-end; justify-content: center; }
+.sheet[hidden] { display: none; }
+.sheet-panel { width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; padding: 8px 16px calc(18px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,.18); max-height: 92vh; overflow-y: auto; }
+.sheet-grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 4px auto 10px; }
+.sheet-body h2 { margin: 0 4px 12px; font-size: 1.25rem; }
+.add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.add-tile { display: grid; gap: 4px; justify-items: start; text-align: left; padding: 14px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); cursor: pointer; min-height: 112px; }
+.add-tile.wide { grid-column: 1 / -1; min-height: 0; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+.add-tile.wide .ic { grid-row: span 2; }
+.add-tile .ic { width: 40px; height: 40px; display: grid; place-items: center; margin-bottom: 6px; }
+.add-tile.wide .ic { margin: 0; }
+.add-tile b { font-size: .98rem; }
+.add-tile small { color: var(--muted); font-size: .78rem; line-height: 1.3; }
+.add-tile:active { transform: scale(.97); }
+.add-tile.exp .ic { background: var(--danger-soft); color: var(--danger); }
+.add-tile.inc .ic { background: var(--ok-soft); color: var(--ok); }
+.add-tile.fix .ic { background: var(--info-soft); color: var(--fixed); }
+.add-tile.qr .ic { background: var(--warn-soft); color: var(--warn); }
+.add-tile.csv .ic { background: var(--primary-soft); color: var(--primary); }
+.add-or { margin: 16px 4px 8px; }
+.sheet .quick { position: static; display: flex; padding: 0; background: none; }
+body.sheet-open { overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .sheet:not([hidden]) { animation: fadeIn .2s ease; }
+  .sheet:not([hidden]) .sheet-panel { animation: sheetUp .32s cubic-bezier(.2, .9, .25, 1); }
+  @keyframes sheetUp { from { transform: translateY(100%); } }
+}
+
+/* grand écran : le + devient un bouton « Ajouter » en tête du menu */
+@media (min-width: 960px) {
+  .tabs { background: var(--surface); grid-template-columns: 1fr; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .tabs button.fab { order: -1; width: 100%; height: 46px; margin: 0 0 10px; border-radius: 14px; box-shadow: none; grid-auto-flow: column; gap: 8px; justify-content: center; }
+  .tabs button.fab span { position: static; width: auto; height: auto; clip: auto; font-weight: 700; }
+  .sheet { align-items: center; }
+  .sheet-panel { border-radius: 28px; }
+}
+@media (max-height: 500px) and (orientation: landscape) { .tabs button.fab { width: 46px; height: 46px; margin-top: -8px; } }
+
+/* bannière de sauvegarde compacte */
+.card.keep { gap: 8px; padding: 14px 16px; }
+.card.keep h2 { font-size: .98rem; }
+.card.keep p { font-size: .86rem; }
+.card.keep .btn { min-height: 44px; }
