@@ -205,6 +205,7 @@
       ${start}
       ${setup}
       ${mini}
+      <button type="button" class="card bank-check" data-action="bank-check"><span class="ic">${svg('revenu')}</span><span class="main"><b>${t('bank.title')}</b><small>${t('bank.hint')}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       ${al.length ? `<section><div class="section-head"><h2>${t('home.watch')}</h2></div><div class="card notes">${al.slice(0, 2).map((a) => `<div class="note ${a.level}">${esc(alertText(a))}</div>`).join('')}</div></section>` : ''}
       </div><div class="col">
       <section>
@@ -1238,6 +1239,59 @@
     const next = `<button type="button" class="btn primary" data-action="wiz-next">${st === N ? t('wiz.finish') : st === 2 && !list.length ? t('wiz.skip') : t('wiz.next')}</button>`;
     return `<section class="wizard"><form id="wizForm" class="form" onsubmit="return false">${head}${body}</form><div class="wiz-foot ${back ? '' : 'single'}">${back}${next}</div></section>`;
   }
+  // ---------- comparer avec le solde de la banque ----------
+  // Franko connaît l'argent du mois (salaire − ce qui est sorti). La banque y ajoute ce qui restait avant le salaire (le report).
+  // 1re vérification : l'écart devient le report du mois (si l'utilisateur le confirme) ; ensuite, tout écart = mouvement manquant.
+  function bankCheckDialog() {
+    const d = doc(), st = F.monthState(d), left = st.flow.left, month = st.month;
+    const bc = d.settings.bankCheck && d.settings.bankCheck.month === month ? d.settings.bankCheck : null;
+    openDialog(t('bank.title'), `<div class="form" id="bankForm">
+      <p class="hint">${t('bank.ask')}</p>
+      <label class="amount-field big-amt"><span class="cur">CHF</span><input name="bank" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-label="${esc(t('bank.title'))}"></label>
+      ${bc ? `<p class="small muted">${t('bank.carryKnown', { amount: fmt(bc.carry) })}</p>` : ''}
+    </div>`, `<button class="btn primary" value="check">${t('bank.check')}</button>`, (action, fd) => {
+      const bank = F.parseAmount(fd.get('bank'));
+      if (!Number.isFinite(bank) || String(fd.get('bank') || '').trim() === '') { toast(t('bank.err')); return true; }
+      setTimeout(() => bankResult(bank, left, month, bc), 0);
+    });
+  }
+  function bankResult(bank, left, month, bc) {
+    const d = doc(), per = F.periodFor(d, F.today());
+    const r2 = (x) => Math.round(x * 100) / 100;
+    const unconfirmed = F.live(d.tx).filter((x) => x.amount < 0 && x.date >= per.start && x.date <= per.end && !x.bankConfirmed && x.source !== 'import' && !x.excluded && !x.transfer);
+    const lastImport = F.live(d.tx).filter((x) => x.bankConfirmed || x.source === 'import').map((x) => x.date).sort().pop();
+    const rowsHtml = (list) => `<ul class="list compact">${list.slice(0, 8).map((x) => `<li><div class="row static">${tile(x.cat, txEnv(x))}<span class="main"><span class="title">${esc(x.label)}</span><span class="meta">${esc(ds(x.date))}</span></span><span class="num">${fmt(x.amount)}</span></div></li>`).join('')}</ul>`;
+    const line = (k, v, cls) => `<div class="wiz-sum-row ${cls || ''}"><span>${k}</span><b class="num">${v}</b></div>`;
+    let body, foot;
+    if (!bc) {
+      const carry = r2(bank - left);
+      body = `<div class="card wiz-sum">${line(t('bank.yourBank'), fmt(bank))}${line(t('bank.monthMoney'), fmt(left))}${line(t('bank.carry'), fmt(carry), 'tot')}</div>
+        <p class="small">${t('bank.firstExplain', { amount: `<b class="num">${fmt(carry)}</b>` })}</p>
+        ${lastImport ? `<p class="small muted">${t('bank.lastImport', { date: esc(ds(lastImport)) })}</p>` : ''}`;
+      foot = `<button class="btn" value="import">${t('bank.importFirst')}</button><button class="btn primary" value="carry">${t('bank.okCarry')}</button>`;
+      openDialog(t('bank.title'), body, foot, (action) => {
+        if (action === 'import') { importDialog(); return true; }
+        setting({ bankCheck: { month, carry } }); toast(t('bank.saved'));
+      });
+      return;
+    }
+    const expected = r2(bc.carry + left), diff = r2(bank - expected);
+    if (Math.abs(diff) < 0.05) {
+      body = `<div class="bank-ok">${CHECK}<b>${t('bank.ok')}</b><p class="small muted">${t('bank.okText', { amount: fmt(bank) })}</p></div>`;
+      openDialog(t('bank.title'), body, `<button class="btn primary" value="close">${t('dlg.ok')}</button>`, () => {});
+      return;
+    }
+    body = `<div class="card wiz-sum">${line(t('bank.yourBank'), fmt(bank))}${line(t('bank.franko'), fmt(expected))}${line(t('bank.diff'), fmt(diff, { sign: true }), 'tot')}</div>
+      <p class="small">${t(diff < 0 ? 'bank.lessExplain' : 'bank.moreExplain', { amount: `<b class="num">${fmt(Math.abs(diff))}</b>` })}</p>
+      ${lastImport ? `<p class="small muted">${t('bank.lastImport', { date: esc(ds(lastImport)) })}</p>` : ''}
+      ${unconfirmed.length ? `<p class="small"><b>${t('bank.unconfirmed', { n: unconfirmed.length })}</b></p>${rowsHtml(unconfirmed)}` : ''}`;
+    foot = `<button class="btn" value="reset">${t('bank.reset')}</button><button class="btn primary" value="import">${t('bank.importNow')}</button>`;
+    openDialog(t('bank.title'), body, foot, (action) => {
+      if (action === 'import') { importDialog(); return true; }
+      if (action === 'reset') { setting({ bankCheck: { month, carry: r2(bank - left) } }); toast(t('bank.saved')); }
+    });
+  }
+
   function wizFinish() {
     const d = doc(), sal = F.parseAmount(wiz.salary);
     setting({ salary: sal, payday: wiz.payday, canton: d.settings.canton || 'FR' });
@@ -1613,6 +1667,7 @@
     'new-income': () => txDialog({ kind: 'income' }),
     limit: (el) => limitDialog(el.dataset.cat),
     'scan-bill': () => scanDialog(),
+    'bank-check': () => bankCheckDialog(),
     'install-later': () => { ui.installLater = Date.now(); saveUi(); render(); },
     'wiz-next': () => {
       wizRead();
