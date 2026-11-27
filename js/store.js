@@ -22,6 +22,58 @@
   // App ajoutée à l'écran d'accueil (iPhone) : son stockage est séparé de celui de Safari.
   const standalone = () => { try { return root.navigator.standalone === true || root.matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } };
   const HKEY = 'franko.handoff';
+  // iPhone : Safari et l'app de l'écran d'accueil ne partagent pas leurs données. Sans compte, Safari garde
+  // une copie chiffrée sur le serveur (clé jamais envoyée) et met son identifiant dans l'adresse de la page ;
+  // l'app ajoutée à l'écran d'accueil s'ouvre sur cette adresse et récupère tout.
+  const isIOS = (() => { try { const n = root.navigator; return /iPhone|iPad|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1); } catch (e) { return false; } })();
+  const TKEY = 'franko.transfer', TDONE = 'franko.transferDone';
+  let transferred = false, ttimer = null;
+  const hex = (u8) => [...u8].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const unhex = (h) => new Uint8Array(h.match(/../g).map((x) => parseInt(x, 16)));
+  const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return root.btoa(s); };
+  const unb64 = (s) => Uint8Array.from(root.atob(s), (c) => c.charCodeAt(0));
+  async function aes(keyHex) { return root.crypto.subtle.importKey('raw', unhex(keyHex), 'AES-GCM', false, ['encrypt', 'decrypt']); }
+  function transferCode() {
+    let c = ls.get(TKEY, null);
+    if (!c || !/^[0-9a-f]{64}$/.test(c)) { const a = new Uint8Array(32); root.crypto.getRandomValues(a); c = hex(a); ls.set(TKEY, c); }
+    return c;
+  }
+  const wantsTransfer = () => cloud && isIOS && !standalone() && !session && !!(doc && doc.settings && doc.settings.salary);
+  function showTransferInUrl() {
+    try {
+      const q = new URLSearchParams(root.location.search);
+      if (q.get('t') === ls.get(TKEY, null)) return;
+      q.set('t', transferCode());
+      root.history.replaceState(null, '', root.location.pathname + '?' + q + root.location.hash);
+    } catch (e) { /* adresse inchangée */ }
+  }
+  async function pushTransfer() {
+    if (!wantsTransfer() || !root.crypto || !root.crypto.subtle) return;
+    try {
+      const code = transferCode(), iv = new Uint8Array(12); root.crypto.getRandomValues(iv);
+      const ct = new Uint8Array(await root.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await aes(code.slice(32)), new TextEncoder().encode(JSON.stringify(doc))));
+      const r = await fetch(cfg.supabaseUrl + '/rest/v1/rpc/put_transfer', { method: 'POST', headers: { apikey: cfg.supabaseAnonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_id: code.slice(0, 32), p_data: b64(iv) + '.' + b64(ct) }) });
+      if (r.ok) showTransferInUrl();
+    } catch (e) { /* hors ligne : on réessaiera à la prochaine modification */ }
+  }
+  const scheduleTransfer = () => { if (!wantsTransfer()) return; clearTimeout(ttimer); ttimer = setTimeout(pushTransfer, 1500); };
+  async function pullTransfer() {
+    let code = null;
+    try { code = new URLSearchParams(root.location.search).get('t'); } catch (e) { /* pas d'adresse */ }
+    if (!cloud || !code || !/^[0-9a-f]{64}$/.test(code) || ls.get(TDONE, null) === code || code === ls.get(TKEY, null)) return false;
+    try {
+      const r = await fetch(cfg.supabaseUrl + '/rest/v1/rpc/take_transfer', { method: 'POST', headers: { apikey: cfg.supabaseAnonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_id: code.slice(0, 32) }) });
+      const data = r.ok ? await r.json() : null;
+      if (!data) { ls.set(TDONE, code); return false; }
+      const [iv, ct] = String(data).split('.');
+      const plain = await root.crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await aes(code.slice(32)), unb64(ct));
+      const remote = normalize(JSON.parse(new TextDecoder().decode(plain)));
+      doc = doc.settings.salary ? F.merge(doc, remote) : remote;
+      ls.set(KEY, doc); ls.set(TDONE, code); transferred = true; emit();
+      if (session) save();
+      return true;
+    } catch (e) { return false; }
+  }
 
   function normalize(d) {
     const e = F.emptyDoc();
@@ -36,6 +88,7 @@
   function save() {
     doc.updatedAt = Date.now();
     ls.set(KEY, doc);
+    scheduleTransfer();
     if (cloud && session) { setStatus('pending'); clearTimeout(timer); timer = setTimeout(sync, 1200); }
   }
   function replace(d) { doc = normalize(d); ls.set(KEY, doc); emit(); }
@@ -216,6 +269,8 @@
     if (cloud) loadProviders();
     try { if (root.navigator.storage && root.navigator.storage.persist) root.navigator.storage.persist(); } catch (e) { /* demande facultative */ }
     if (!cloud) return;
+    pullTransfer();
+    if (wantsTransfer()) { if (ls.get(TKEY, null)) showTransferInUrl(); scheduleTransfer(); }
     const h = readHash();
     if (h === true) status = 'busy';
     if (h === 'handoff') { /* la session part vers l'app de l'écran d'accueil */ } else if (session) sync(); else takeHandoff().then((ok) => { if (ok) emit(); });
@@ -234,6 +289,8 @@
     init, save, replace, sync, signIn, signInWith, signOut, billing, createIngestKey,
     get providers() { return providers; },
     get handedOff() { return handedOff; },
+    get isIOS() { return isIOS; },
+    takeTransferred() { const x = transferred; transferred = false; return x; },
     get standalone() { return standalone(); },
     takeIngested() { const x = lastIngest; lastIngest = null; return x; },
     get ingestUrl() { return cloud ? cfg.supabaseUrl + '/functions/v1/ingest' : ''; },

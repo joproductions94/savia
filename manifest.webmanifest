@@ -2,7 +2,7 @@
   "name": "Franko",
   "short_name": "Franko",
   "description": "Budget familial suisse : ce qu'il vous reste une fois les charges payées.",
-  "start_url": "app.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0d5c57",

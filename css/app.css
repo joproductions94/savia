@@ -668,3 +668,12 @@ body.in-wizard { padding-bottom: 24px; }
 .wiz-foot .btn { min-height: 52px; border-radius: 16px; font-weight: 700; font-size: 1rem; }
 .wiz-again { margin-bottom: 4px; }
 @media (min-width: 960px) { body.in-wizard { padding-left: 0; } }
+
+/* iPhone dans Safari : installer sur l'écran d'accueil */
+.card.install { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; background: var(--primary-soft); border-color: transparent; }
+.install-ic { width: 44px; height: 44px; border-radius: 14px; background: var(--surface); display: grid; place-items: center; color: var(--primary); }
+.install-txt { display: grid; gap: 6px; }
+.install-txt h2 { font-size: 1rem; margin: 0; }
+.install-txt ol { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; }
+.install-txt p { margin: 0; }
+.install-txt .link { justify-self: start; color: var(--muted); font-weight: 500; }

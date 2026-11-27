@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/site.css">
   <script src="config.js"></script>
   <script>/* lien de connexion reçu par e-mail : la session est ouverte par l'app */ if (/(^|[#&])(access_token|error_code|error)=/.test(location.hash)) location.replace('app.html' + location.hash);</script>
+  <script>/* ouverte depuis l'écran d'accueil : directement dans l'app */ try { if (navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) location.replace('app.html' + location.search); } catch (e) {}</script>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Franko","applicationCategory":"FinanceApplication","operatingSystem":"Web, iOS, Android","inLanguage":["fr","de","it"],"offers":[{"@type":"Offer","price":"0","priceCurrency":"CHF","name":"Gratuit"},{"@type":"Offer","price":"4.90","priceCurrency":"CHF","name":"Pro mensuel"},{"@type":"Offer","price":"49","priceCurrency":"CHF","name":"Pro annuel"}]}</script>
 </head>
 <body>

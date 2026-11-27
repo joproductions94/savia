@@ -22,7 +22,7 @@
   const doc = () => S.doc;
   const ui = Object.assign({ tab: 'home', filter: 'all', offset: 0 }, S.ui.get('state', {}));
   if (ui.theme !== 'dark' && ui.theme !== 'system') ui.theme = 'light'; // fond blanc par défaut, même si le téléphone est en mode sombre
-  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, planOpen: ui.planOpen, walletOpen: ui.walletOpen, startDone: ui.startDone });
+  const saveUi = () => S.ui.set('state', { tab: ui.tab, filter: ui.filter, theme: ui.theme, lang: ui.lang, keepLater: ui.keepLater, moreOpen: ui.moreOpen, planOpen: ui.planOpen, walletOpen: ui.walletOpen, startDone: ui.startDone, installLater: ui.installLater });
   function save() { S.save(); render(); }
   function setting(patch) { Object.assign(doc().settings, patch, { updatedAt: Date.now() }); save(); }
   const accounts = () => F.live(doc().accounts);
@@ -84,7 +84,7 @@
     $('#periodLabel').textContent = doc().settings.salary ? `${mLong.format(asDate(per.start))} · J-${per.daysLeft}` : '';
     renderBadge();
     const v = $('#view');
-    v.innerHTML = (ui.tab === 'home' ? '' : keepNotice()) + (VIEWS[ui.tab] || VIEWS.home)(st);
+    v.innerHTML = (ui.tab === 'home' ? installNotice() : keepNotice()) + (VIEWS[ui.tab] || VIEWS.home)(st);
     if (v.dataset.tab !== ui.tab) {
       // la vue glisse dans le sens de l'onglet choisi, comme une transition de prototype
       const order = ['home', 'tx', 'plan', 'settings'];
@@ -96,6 +96,17 @@
     afterRender();
   }
   // Sans compte, les données ne vivent que dans ce navigateur (sur iPhone, Safari et l'écran d'accueil ne les partagent pas).
+  // iPhone dans Safari : installer d'abord sur l'écran d'accueil (les chiffres suivent automatiquement)
+  function installNotice() {
+    if (!S.isIOS || S.standalone || ui.installLater && Date.now() - ui.installLater < 2 * 864e5) return '';
+    return `<section class="card install">
+      <div class="install-ic">${svg('telecom')}</div>
+      <div class="install-txt"><h2>${t('inst.title')}</h2>
+        <ol class="small"><li>${t('inst.s1')}</li><li>${t('inst.s2')}</li><li>${t('inst.s3')}</li></ol>
+        <p class="small muted">${t(doc().settings.salary ? 'inst.keep' : 'inst.first')}</p>
+        <button type="button" class="link" data-action="install-later">${t('keep.later')}</button></div>
+    </section>`;
+  }
   function keepNotice() {
     if (S.handedOff) return `<section class="card keep done"><h2>${t('keep.done.title')}</h2><p class="muted">${t('keep.done.text')}</p></section>`;
     if (!doc().settings.salary || (ui.tab === 'home' && !ui.startDone)) return ''; // premier écran : le salaire d'abord, puis le guide propose la sauvegarde // le guide « Pour bien démarrer » s'en charge
@@ -1600,6 +1611,7 @@
     'new-income': () => txDialog({ kind: 'income' }),
     limit: (el) => limitDialog(el.dataset.cat),
     'scan-bill': () => scanDialog(),
+    'install-later': () => { ui.installLater = Date.now(); saveUi(); render(); },
     'wiz-next': () => {
       wizRead();
       if (wiz.step === 1 && !(F.parseAmount(wiz.salary) > 0)) { toast(t('wiz.s1.err')); return; }
@@ -1795,6 +1807,7 @@
     if (x) { ui.tab = 'home'; toast(t('wallet.added', { label: x.label, amount: fmt(x.amount) }), [{ label: t('quick.edit'), fn: () => txDialog(x) }]); }
   }
   S.on(() => {
+    if (S.takeTransferred && S.takeTransferred()) { wiz = null; ui.tab = 'home'; setTimeout(() => toast(t('inst.got')), 200); }
     const got = S.takeIngested && S.takeIngested();
     render();
     if (got && got.length) toast(got.length === 1 ? t('wallet.added', { label: got[0].label, amount: fmt(got[0].amount) }) : t('wallet.addedN', { n: got.length }));
@@ -1809,6 +1822,14 @@
   S.init();
   takeLinkPayment();
   render();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      // à chaque retour dans l'app, on vérifie s'il existe une nouvelle version
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {});
+  }
   window.App = { render, getDoc: doc, toast };
 })();
