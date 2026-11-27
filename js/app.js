@@ -1362,7 +1362,7 @@
   // ---------- import de relevé ----------
   let pendingImport = null;
   function importDialog() {
-    if (!accounts().length) { toast(t('imp.needAccount')); accountDialog(null); return; }
+    if (!accounts().length) { const d = doc(), id = F.uid(); d.accounts.push({ id, name: t('imp.defaultAccount'), updatedAt: Date.now() }); d.settings.defaultAccount = id; save(); }
     openDialog(t('imp.title'), `<div class="form">
       <label class="field">${t('imp.account')}<select name="accountId">${accounts().map((a) => `<option value="${esc(a.id)}" ${doc().settings.defaultAccount === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
       <p class="hint">${t('imp.hint')}</p></div>`,
@@ -1385,7 +1385,9 @@
       r.excluded ? `<span class="tag">${t('tag.excluded')}</span>` : '', r.transfer ? `<span class="tag tr">${t('tag.transfer')}</span>` : '',
       r.split ? `<span class="tag ok">${t('imp.split', { labels: esc(r.split.map((p) => p.label).join(' + ')) })}</span>` : ''].join('');
     const count = () => rows.filter((r) => r.selected).length;
-    openDialog(t('imp.title'), `<p class="small muted">${t('imp.preview', { n: rows.length })}</p><div id="impRows">${rows.map((r, i) => `<label class="imp-row"><input type="checkbox" name="sel" value="${i}" ${r.selected ? 'checked' : ''} ${r.dup === 'exact' ? 'disabled' : ''}>
+    const nNew = rows.filter((r) => !r.dup).length, nDup = rows.filter((r) => r.dup === 'exact').length, nKnown = rows.filter((r) => r.dup === 'probable').length, nFixed = rows.filter((r) => r.fixedId && r.dup !== 'exact').length;
+    const sum = [[nNew, 'imp.sumNew'], [nKnown, 'imp.sumKnown'], [nFixed, 'imp.sumFixed'], [nDup, 'imp.sumDup']].filter(([n]) => n).map(([n, k]) => `<li><b class="num">${n}</b> ${t(k)}</li>`).join('');
+    openDialog(t('imp.title'), `<ul class="imp-sum">${sum}</ul><p class="small muted">${t('imp.sumHint')}</p><div id="impRows">${rows.map((r, i) => `<label class="imp-row"><input type="checkbox" name="sel" value="${i}" ${r.selected ? 'checked' : ''} ${r.dup === 'exact' ? 'disabled' : ''}>
         <span style="min-width:0"><span class="t">${esc(r.label)}</span><span class="s"> · ${esc(ds(r.date))} · ${esc(catLabel(r.cat))}</span>${tag(r) ? `<span class="tags">${tag(r)}</span>` : ''}</span>
         <span class="num ${r.amount > 0 ? 'pos' : ''}">${fmt(r.amount, { sign: true })}</span></label>`).join('')}</div>`,
     `<button class="btn primary" value="go">${t('imp.go', { n: count() })}</button>`,
