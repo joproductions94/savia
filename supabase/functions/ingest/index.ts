@@ -57,9 +57,14 @@ Deno.serve(async (req) => {
     } catch { return json({ error: 'body' }, 400); }
   }
   // iOS envoie parfois toute la transaction en texte (« 12,50 CHF Migros… ») : on en tire le montant et le commerçant.
-  const raw = String(p.amount ?? p.montant ?? p.text ?? '').trim();
+  const val: unknown = p.amount ?? p.montant ?? p.text ?? '';
+  const raw = (val && typeof val === 'object' ? JSON.stringify(val) : String(val)).trim(); // objet (transaction iOS) : on lit son texte
   const { amount, rest } = splitAmount(raw);
-  if (!amount) return json({ error: 'amount' }, 400);
+  if (!amount) {
+    // diagnostic : forme de ce qu'a envoyé le raccourci (type, clés, début du texte), sans la clé
+    console.log('ingest: amount missing', JSON.stringify({ keys: Object.keys(p), type: typeof (p.amount ?? p.montant ?? p.text), sample: raw.slice(0, 120) }));
+    return json({ error: 'amount' }, 400);
+  }
   const merchant = String(p.merchant ?? p.label ?? '').trim() || rest;
   const payload = {
     amount, merchant: merchant.slice(0, 120), card: String(p.card ?? '').slice(0, 60),
