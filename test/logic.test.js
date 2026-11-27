@@ -519,3 +519,41 @@ test('import : deux lignes du même montant ne paient pas deux fois la même cha
   const r = F.reconcile(d, null, [{ date: '2026-11-26', label: 'Crèche Les Lutins', amount: -900 }, { date: '2026-11-27', label: 'Crèche Les Lutins', amount: -900 }]);
   assert.equal(r.filter((x) => x.fixedId === 'f1').length, 1);
 });
+
+test('réparation : charge supprimée puis recréée, le paiement n’est plus compté deux fois', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6267; d.settings.payday = 25;
+  d.fixed.push({ id: 'old', label: 'Loyer', amount: 1000, cat: 'logement', deleted: true, updatedAt: 1 }, { id: 'new', label: 'Loyer', amount: 1000, cat: 'logement', updatedAt: 2 });
+  d.fixed.push({ id: 'tOld', label: 'Téléphone & internet', amount: 188, cat: 'telecom', deleted: true, updatedAt: 1 }, { id: 'tNew', label: 'Téléphone & internet', amount: 197, cat: 'telecom', updatedAt: 2 });
+  F.addTx(d, { date: '2026-11-27', amount: -1000, label: 'Loyer', cat: 'logement', fixedId: 'old', source: 'manual', paidMark: true });
+  F.addTx(d, { date: '2026-11-27', amount: -1000, label: 'Loyer', cat: 'logement', fixedId: 'new', source: 'manual', paidMark: true });
+  F.addTx(d, { date: '2026-11-27', amount: -188, label: 'Téléphone & internet', cat: 'telecom', fixedId: 'tOld', source: 'manual', paidMark: true });
+  const before = F.monthState(d, '2026-11-28').flow;
+  const n = F.repairFixedPayments(d);
+  const after = F.monthState(d, '2026-11-28').flow;
+  assert.ok(n >= 2);
+  assert.equal(F.live(d.tx).filter((t) => t.fixedId === 'new').length, 1);
+  assert.equal(F.live(d.tx).filter((t) => t.fixedId === 'tNew').length, 1);
+  assert.equal(after.leftAfterAll, 6267 - 1000 - 188, 'salaire − loyer − téléphone, chacun une seule fois');
+  assert.ok(after.leftAfterAll > before.leftAfterAll);
+});
+
+test('import : la même ligne déjà importée sans compte n’est pas réimportée avec un compte', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6000;
+  F.addTx(d, { date: '2026-11-26', amount: -111, label: 'Hostpoint AG', cat: 'loisirs', source: 'import', bankConfirmed: true, skipBalance: true });
+  d.accounts.push({ id: 'acc', name: 'Compte courant' });
+  const r = F.reconcile(d, 'acc', [{ date: '2026-11-26', label: 'Hostpoint AG', amount: -111 }]);
+  assert.equal(r[0].dup, 'exact');
+});
+
+test('import : une charge cochée « payé » à la main est confirmée par le relevé, pas ajoutée une 2e fois', () => {
+  const d = F.emptyDoc(); d.settings.salary = 6000; d.settings.payday = 25;
+  d.fixed.push({ id: 'v', label: 'Compte voiture', amount: 500, cat: 'autre', updatedAt: 1 });
+  F.addTx(d, { date: '2026-12-20', amount: -500, label: 'Compte voiture', cat: 'autre', fixedId: 'v', source: 'manual', paidMark: true });
+  const rows = F.reconcile(d, null, [{ date: '2026-11-26', label: 'James Ortega · Envoyé via Neon', amount: -500 }]);
+  assert.ok(rows[0].cands.some((c) => c.id === 'v' && c.paid && c.paid.manual), 'la charge est proposée comme déjà payée');
+  rows[0].fixedId = 'v'; // l'utilisateur confirme : c'est le compte voiture
+  F.applyImport(d, null, rows);
+  const pays = F.live(d.tx).filter((t) => t.amount === -500);
+  assert.equal(pays.length, 1);
+  assert.ok(pays[0].bankConfirmed);
+});

@@ -324,6 +324,59 @@
     }
     return n;
   }
+  // Réparation : une charge supprimée puis recréée laissait son paiement actif (compté deux fois).
+  // 1. un paiement relié à une charge supprimée passe sur la charge vivante du même nom (ou du même montant et de la même catégorie) ;
+  // 2. une charge ne garde qu'un « payé » par mois : le relevé bancaire l'emporte sur la coche manuelle, et deux coches deviennent une.
+  function repairFixedPayments(doc, now) {
+    const liveFixed = live(doc.fixed), liveIds = new Set(liveFixed.map((c) => c.id).concat(live(doc.planned).map((p) => p.id)));
+    const byId = new Map((doc.fixed || []).map((c) => [c.id, c]));
+    let changed = 0;
+    for (const t of live(doc.tx)) {
+      if (!t.fixedId || liveIds.has(t.fixedId)) continue;
+      const old = byId.get(t.fixedId);
+      if (!old) continue; // facture QR ou autre : on ne touche pas
+      const name = fold(old.label);
+      const repl = liveFixed.find((c) => fold(c.label) === name) || liveFixed.find((c) => c.cat === old.cat && cents(num(c.amount)) === cents(num(old.amount)));
+      if (repl) t.fixedId = repl.id; else delete t.fixedId;
+      touch(t, now); changed++;
+    }
+    const isManual = (t) => !t.bankConfirmed && t.source !== 'import';
+    const groups = new Map();
+    for (const t of live(doc.tx)) {
+      if (!t.fixedId || !liveIds.has(t.fixedId) || !(t.amount < 0)) continue;
+      const key = t.fixedId + '|' + salaryMonth(periodFor(doc, t.date));
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
+    }
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      const manual = list.filter(isManual), bank = list.filter((t) => !isManual(t));
+      let drop = [];
+      if (bank.length) drop = manual; // le relevé confirme : la coche manuelle disparaît
+      else {
+        const c = byId.get(list[0].fixedId), target = c ? num(c.amount) : 0;
+        const keep = manual.slice().sort((a, b) => Math.abs(-a.amount - target) - Math.abs(-b.amount - target) || (a.date < b.date ? -1 : 1))[0];
+        drop = manual.filter((t) => t !== keep);
+      }
+      for (const t of drop) { if (t.accountId) adjustBalance(doc, t.accountId, -t.amount, now); t.deleted = true; touch(t, now); changed++; }
+    }
+    return changed;
+  }
+  // Charges proposées pour une ligne de relevé (à confirmer par l'utilisateur) : montant proche ou même nom, payées ou non.
+  function chargeCandidates(doc, row) {
+    if (!(row.amount < 0)) return [];
+    const amt = -row.amount, text = fold(row.label);
+    const per = periodFor(doc, row.date);
+    const paidBy = new Map(live(doc.tx).filter((x) => x.fixedId && x.date >= per.start && x.date <= per.end).map((x) => [x.fixedId, x]));
+    return live(doc.fixed).filter((c) => num(c.amount) > 0).map((c) => {
+      const a = num(c.amount), w = keyWord(c.label);
+      const named = !!w && (text.includes(w) || text.replace(/\s+/g, '').includes(w));
+      const diff = Math.abs(a - amt) / a;
+      const score = (named ? 2 : 0) + (diff === 0 ? 2 : diff <= 0.1 ? 1 : diff <= 0.25 ? 0.5 : 0);
+      const p = paidBy.get(c.id);
+      return { id: c.id, label: c.label, amount: a, score, paid: p ? { id: p.id, manual: !p.bankConfirmed && p.source !== 'import' } : null };
+    }).sort((a, b) => b.score - a.score || a.label.localeCompare(b.label)).slice(0, 12); // toutes les charges : les plus probables d'abord
+  }
   // État des charges d'une période : payée (mouvement relié), acompte (paiement de même catégorie), ou à payer.
   function fixedStatus(doc, per) {
     const inPer = live(doc.tx).filter((x) => !x.excluded && x.date >= per.start && x.date <= per.end);
@@ -955,12 +1008,12 @@
     const claimed = new Set(); // charges déjà attribuées à une ligne de ce relevé
     return rows.map((r) => {
       const out = { ...r };
-      const exact = tx.find((t) => !used.has(t.id) && t.accountId === accountId && (t.source === 'import' || t.bankConfirmed) && t.date === r.date && cents(t.amount) === cents(r.amount));
+      const exact = tx.find((t) => !used.has(t.id) && (!t.accountId || !accountId || t.accountId === accountId) && (t.source === 'import' || t.bankConfirmed) && t.date === r.date && cents(t.amount) === cents(r.amount));
       if (exact) { out.dup = 'exact'; out.matchId = exact.id; used.add(exact.id); }
       else {
         const prob = tx.find((t) => !used.has(t.id) && !t.bankConfirmed && t.source !== 'import' && Math.sign(t.amount) === Math.sign(r.amount) &&
           ((cents(t.amount) === cents(r.amount) && diffDays(r.date, t.date) >= -3 && diffDays(r.date, t.date) <= 7) ||
-           (t.fixedId && Math.abs(diffDays(t.date, r.date)) <= 20 && Math.abs(t.amount - r.amount) <= Math.abs(r.amount) * 0.1)));
+           (t.fixedId && (Math.abs(diffDays(t.date, r.date)) <= 20 || salaryMonth(periodFor(doc, t.date)) === salaryMonth(periodFor(doc, r.date))) && Math.abs(t.amount - r.amount) <= Math.abs(r.amount) * 0.1)));
         if (prob) { out.dup = 'probable'; out.matchId = prob.id; used.add(prob.id); if (prob.fixedId) out.fixedId = prob.fixedId; }
       }
       let cat = r.amount > 0 ? 'revenu' : categorize(r.label, learned);
@@ -980,6 +1033,7 @@
       if (ex && ex[keyWord(r.label)]) { out.excluded = true; delete out.fixedId; }
       const rule = !out.dup && splitRuleFor(doc, r);
       if (rule) { out.split = rule.parts; delete out.fixedId; }
+      out.cands = out.dup === 'exact' ? [] : chargeCandidates(doc, r);
       out.selected = out.dup !== 'exact';
       return out;
     });
@@ -1006,6 +1060,16 @@
         }
         continue;
       }
+      if (r.fixedId && r.amount < 0) {
+        const per = periodFor(doc, r.date);
+        const prev = live(doc.tx).find((x) => x.fixedId === r.fixedId && x.date >= per.start && x.date <= per.end && !x.bankConfirmed && x.source !== 'import');
+        if (prev) {
+          if (prev.accountId) adjustBalance(doc, prev.accountId, -prev.amount, now);
+          Object.assign(prev, { accountId, date: r.date, amount: r.amount, bankConfirmed: true, bankLabel: r.label });
+          touch(prev, now); linked++; fixedPaid++;
+          continue;
+        }
+      }
       const fx = r.fixedId && live(doc.fixed).find((c) => c.id === r.fixedId);
       const pl = r.fixedId && !fx && live(doc.planned).some((p) => p.id === r.fixedId);
       const t = addTx(doc, { date: r.date, amount: r.amount, label: r.label, cat: r.cat, env: fx ? chargeEnv(fx) : pl ? 'fixed' : r.amount < 0 ? envOf(r.cat) : null, fixedId: r.fixedId || undefined, excluded: r.excluded || undefined, accountId, source: 'import', transfer: !!r.transfer, bankConfirmed: true, skipBalance: true }, now);
@@ -1013,6 +1077,7 @@
       if (t.fixedId) fixedPaid++;
       if (r.split) { const parts = splitTx(doc, t.id, r.split, now); for (const x of parts) if (x.fixedId) fixedPaid++; }
     }
+    repairFixedPayments(doc, now);
     return { added, linked, fixedPaid };
   }
 
@@ -1062,7 +1127,7 @@
     CATS, CAT_BY_ID, ENVS, PRESETS,
     num, round2, r05, fold, uid, live, today, addDays, diffDays, addMonths, fmt, parseAmount, parseDate,
     envOf, chargeEnv, isBonus, ibanOk, parseQrBill, billToPlanned, matchPlanned, forecast, taxDossier, limitsState, goalsState, yearReview, isYearly, monthlyOf, yearlyCovered, pillar3a, subscriptions, overspend, swissReminders, P3A_MAX, keyWord, categorize, plan, period, salaryDates, periodFor, periodAt, salaryMonth,
-    addTx, updateTx, deleteTx, matchFixed, relinkFixed, fixedStatus, plannedFor, dueDate, setCheck,
+    addTx, updateTx, deleteTx, matchFixed, relinkFixed, repairFixedPayments, chargeCandidates, fixedStatus, plannedFor, dueDate, setCheck,
     monthState, alerts, emergencyFund, history, nextMonth, dailySeries, parseIngest, ingest, splitTx, splitRuleFor, parseCommand,
     detectDelimiter, splitCSV, parseStatement, reconcile, applyImport, merge, sameDoc, emptyDoc, toCSV,
   };

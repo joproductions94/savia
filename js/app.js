@@ -1424,7 +1424,7 @@
     (action, fd) => {
       const now = Date.now();
       if (action === 'delete') {
-        Object.assign(existing, { deleted: true, updatedAt: now }); save();
+        Object.assign(existing, { deleted: true, updatedAt: now }); F.repairFixedPayments(d); save();
         toast(t('fixed.deleted', { label: existing.label }), [{ label: t('undo'), fn: () => { Object.assign(existing, { deleted: false, updatedAt: Date.now() }); save(); } }]);
         return;
       }
@@ -1522,11 +1522,13 @@
     const sum = [[nNew, 'imp.sumNew'], [nKnown, 'imp.sumKnown'], [nFixed, 'imp.sumFixed'], [nDup, 'imp.sumDup']].filter(([n]) => n).map(([n, k]) => `<li><b class="num">${n}</b> ${t(k)}</li>`).join('');
     openDialog(t('imp.title'), `<ul class="imp-sum">${sum}</ul><p class="small muted">${t('imp.sumHint')}</p><div id="impRows">${rows.map((r, i) => `<label class="imp-row"><input type="checkbox" name="sel" value="${i}" ${r.selected ? 'checked' : ''} ${r.dup === 'exact' ? 'disabled' : ''}>
         <span style="min-width:0"><span class="t">${esc(r.label)}</span><span class="s"> · ${esc(ds(r.date))} · ${esc(catLabel(r.cat))}</span>${tag(r) ? `<span class="tags">${tag(r)}</span>` : ''}</span>
-        <span class="num ${r.amount > 0 ? 'pos' : ''}">${fmt(r.amount, { sign: true })}</span></label>`).join('')}</div>`,
+        <span class="num ${r.amount > 0 ? 'pos' : ''}">${fmt(r.amount, { sign: true })}</span></label>${r.amount < 0 && r.dup !== 'exact' && !r.transfer && (r.cands || []).length ? `<label class="imp-fixed"><span>${t('imp.isFixed')}</span><select data-imp-fixed="${i}"><option value="">${t('imp.notFixed')}</option>${r.cands.map((c) => `<option value="${esc(c.id)}" ${r.fixedId === c.id ? 'selected' : ''}>${esc(c.label)} · ${fmt(c.amount)}${c.paid ? ' — ' + t(c.paid.manual ? 'imp.paidManual' : 'imp.paidBank') : ''}</option>`).join('')}</select></label>` : ''}`).join('')}</div>`,
     `<button class="btn primary" value="go">${t('imp.go', { n: count() })}</button>`,
     (action, fd) => {
       const sel = new Set(fd.getAll('sel').map(Number));
       rows.forEach((r, i) => { r.selected = sel.has(i); });
+      // choix de l'utilisateur : cette ligne paie telle charge (ou aucune)
+      $$('[data-imp-fixed]').forEach((s) => { const r = rows[+s.dataset.impFixed]; if (r) { if (s.value) { r.fixedId = s.value; delete r.split; } else delete r.fixedId; } });
       const res = F.applyImport(doc(), accountId, rows);
       F.relinkFixed(doc());
       save(); toast(t('imp.done', { added: res.added, linked: res.linked, fixed: res.fixedPaid }));
@@ -1820,6 +1822,7 @@
     setTimeout(() => toast(t(authErr[2] === 'otp_expired' ? 'auth.linkExpired' : 'auth.linkError')), 300);
   }
   S.init();
+  if (F.repairFixedPayments(doc())) S.save(); // anciens doublons (charge supprimée puis recréée)
   takeLinkPayment();
   render();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
